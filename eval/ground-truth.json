@@ -1,0 +1,118 @@
+[
+  {
+    "id": "receipt_001",
+    "image": "receipt_001.png",
+    "merchant": "Costco Wholesale",
+    "total": 58.23,
+    "itemsCount": 7,
+    "items": [
+      { "name": "Cretors Mix",                        "price": 5.89  },
+      { "name": "Kirkland Signature Wheat Bread",     "price": 3.99  },
+      { "name": "SkinnyPop 14",                       "price": 5.39  },
+      { "name": "Pork Eggroll",                       "price": 7.59  },
+      { "name": "Kings Bowl",                         "price": 10.99 },
+      { "name": "Kirkland Signature Trail Mix",       "price": 12.89 },
+      { "name": "Yakisoba",                           "price": 11.49 }
+    ],
+    "notes": "Merchant identified by address 'Gig Harbor, WA'. KS expanded to Kirkland Signature."
+  },
+  {
+    "id": "receipt_002",
+    "image": "receipt_002.png",
+    "merchant": "Costco Wholesale",
+    "total": 5.01,
+    "itemsCount": 8,
+    "items": [
+      { "name": "Kirkland Signature California Pistachios 1.36kg", "price": 26.99 },
+      { "name": "Prolive Probiotic",                               "price": 8.99  },
+      { "name": "Organic Rooibos Tea",                            "price": 12.99 },
+      { "name": "Organic Rooibos Tea",                            "price": 3.00  },
+      { "name": "Double Smoked Ham",                              "price": 45.89 },
+      { "name": "TPD Double Smoked Ham",                          "price": -7.00 },
+      { "name": "Sparkling Water 24x500ml",                       "price": 29.59 },
+      { "name": "TPD Sparkling Water 24x500ml",                   "price": -5.01 }
+    ],
+    "notes": "Hardest receipt. Blur and cut-off bottom. Items sold count on receipt is 22; only a few are visible. Contains discount/adjustment lines (negative prices)."
+  },
+  {
+    "id": "receipt_003",
+    "image": "receipt_003.jpg",
+    "merchant": "Costco Wholesale",
+    "total": 97.18,
+    "itemsCount": 16,
+    "items": [
+      { "name": "Active Yeast",                        "price": 3.95  },
+      { "name": "Kirkland Signature Pepper Grinder",   "price": 3.99  },
+      { "name": "Kirkland Signature Med Salt",         "price": 3.49  },
+      { "name": "Kirkland Signature Vanilla",          "price": 5.99  },
+      { "name": "MRM Antipasto",                       "price": 4.97  },
+      { "name": "Greek Yogurt",                        "price": 6.99  },
+      { "name": "Bananas",                             "price": 1.32  },
+      { "name": "Omega 3 Eggs",                        "price": 5.49  },
+      { "name": "Strawberry Waffles",                  "price": 10.99 },
+      { "name": "Neprica",                             "price": 7.99  },
+      { "name": "Organic Butter",                      "price": 6.89  },
+      { "name": "Blue Cheese",                         "price": 7.29  },
+      { "name": "Olives",                              "price": 6.49  },
+      { "name": "Firm Tofu",                           "price": 2.15  },
+      { "name": "Small Red Potatoes",                  "price": 5.79  },
+      { "name": "Avocados",                            "price": 5.29  }
+    ],
+    "notes": "High clarity. Abbreviations expanded."
+  },
+  {
+    "id": "receipt_004",
+    "image": "receipt_004.jpg",
+    "merchant": "Costco Wholesale",
+    "total": 89.13,
+    "itemsCount": 9,
+    "items": [
+      { "name": "FF BS Breast",                        "price": 23.99 },
+      { "name": "Kirkland Signature Diced Tomatoes",   "price": 6.49  },
+      { "name": "Jack's Organic Salsa",                "price": 2.97  },
+      { "name": "18ct Eggs",                           "price": 12.87 },
+      { "name": "Grape Tomato",                        "price": 6.29  },
+      { "name": "Eco Half Pan",                        "price": 6.49  },
+      { "name": "Ground Turkey",                       "price": 18.47 },
+      { "name": "Chopped Onion",                       "price": 3.59  },
+      { "name": "Monterey Jack 2#",                    "price": 4.45  }
+    ],
+    "notes": "Quantities handled as final line prices."
+  },
+  {
+    "id": "receipt_005",
+    "image": "receipt_005.png",
+    "merchant": "Boston Market",
+    "total": 18.49,
+    "itemsCount": 2,
+    "items": [
+      { "name": "Rotisserie Chicken Meal",             "price": 12.99 },
+      { "name": "Mac and Cheese Side",                 "price": 3.99  }
+    ],
+    "notes": "Digital layout, high accuracy expected."
+  },
+  {
+    "id": "receipt_006",
+    "image": "receipt_006.png",
+    "merchant": "Whole Foods Market",
+    "total": 21.84,
+    "itemsCount": 1,
+    "items": [
+      { "name": "Pizza BYO",                           "price": 19.99 }
+    ],
+    "notes": "Clean vertical alignment."
+  },
+  {
+    "id": "receipt_007",
+    "image": "receipt_007.jpg",
+    "merchant": "Whole Foods Market",
+    "total": 21.40,
+    "itemsCount": 3,
+    "items": [
+      { "name": "Sust XLarge Condoms 10ct",            "price": 12.79 },
+      { "name": "Raaka OG Mini Choco Bar",             "price": 0.99  },
+      { "name": "Pom Mums 7 Stem",                     "price": 5.99  }
+    ],
+    "notes": "Mixed categories: health, snacks, produce."
+  }
+]
