@@ -178,9 +178,18 @@ export function interpretReceipt(rawText: string): InterpretedReceipt {
 
   // Pass 1: detect receipt total
   let detectedTotal = 0;
-  for (const cl of classified) {
-    if (cl.lineClass === 'total' && cl.price !== null && cl.price > detectedTotal) {
+  for (let i = 0; i < classified.length; i++) {
+    const cl = classified[i];
+    if (cl.lineClass !== 'total') continue;
+    if (cl.price !== null && cl.price > detectedTotal) {
       detectedTotal = cl.price;
+    } else if (cl.price === null && i > 0) {
+      // International receipts (e.g. Czech TESCO) put the amount on its own line
+      // immediately before the keyword: "842.89\nCELKEM" — adopt the preceding price.
+      const prev = classified[i - 1];
+      if (prev.lineClass === 'price_only' && prev.price !== null && prev.price > detectedTotal) {
+        detectedTotal = prev.price;
+      }
     }
   }
 

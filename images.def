@@ -1,0 +1,18 @@
+# Receipt dataset manifest — Stage 10 Sanity Gate
+# Format: receipt_id | filename | merchant | total
+# total = "null" means the receipt is unverifiable (folded/cut; no GT total available)
+# Filenames reflect actual on-disk names; .jfif files are stored as JPEG.
+# Image directory: C:\Users\savir\OneDrive\Personal\Creative_Projects\receipt dataset
+
+receipt_001 | receipt_001.png  | Costco Wholesale         | 58.23
+receipt_002 | receipt_002.png  | Costco Wholesale         | null
+receipt_003 | receipt_003.jfif | Costco Wholesale         | 97.18
+receipt_004 | receipt_004.jfif | Costco Wholesale         | 89.13
+receipt_005 | receipt_005.png  | Boston Market            | 18.49
+receipt_006 | receipt_006.png  | Whole Foods Market       | 21.84
+receipt_007 | receipt_007.jfif | Whole Foods Market       | 21.40
+receipt_008 | receipt_008.jfif | Whole Foods Market       | 100.00
+receipt_009 | receipt_009.png  | Holiday Market           | 14.04
+receipt_010 | receipt_010.jfif | Tesco                    | 842.89
+receipt_011 | receipt_011.png  | Trade Fair Supermarkets  | 6.83
+receipt_012 | receipt_012.png  | SHINSEN FISH MARKET      | 11957.00

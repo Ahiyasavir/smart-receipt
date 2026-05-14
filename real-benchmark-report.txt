@@ -1,44 +1,22 @@
-Real Receipt Benchmark Report
-Generated: 2026-05-13T21:32:20.417Z
+Real Receipt Benchmark Report — Stage 10
+Generated: 2026-05-14T07:55:11.470Z
 
-receipt_001 [PASS] score=73/100
-  OCR: 256 chars, strength=0.921
-  Items: recall=71% precision=100% F1=83%
-  Total: $58.23 / $58.23 (0% off)
-  Merchant: wrong
+ID           | Verdict | Score | Items% | Total% | Mode          | Diagnostics
+─────────────────────────────────────────────────────────────────────────────────────
+receipt_001  | PASS    |    73 |    71% |   100% | partial       | Mismatch
+receipt_002  | SKIP    |   n/a |    n/a |    n/a | empty         | Unverifiable
+receipt_003  | FAIL    |    25 |     0% |     0% | format-unsupported| none
+receipt_004  | PASS    |    77 |    56% |    96% | partial       | Crop/Glare(12), Mismatch
+receipt_005  | PASS    |   100 |   100% |   100% | good          | none
+receipt_006  | PASS    |    85 |   100% |   100% | partial       | Crop/Glare(17), Mismatch
+receipt_007  | WARN    |    45 |     0% |   100% | partial       | Crop/Glare(2), Mismatch, LowCov(47%)
+receipt_008  | PASS    |    85 |   ~88% |    99% | partial       | Crop/Glare(15), Mismatch, Incomplete
+receipt_009  | PASS    |    85 |  ~133% |   100% | partial       | Mismatch
+receipt_010  | PASS    |    85 |   ~83% |   100% | good          | Crop/Glare(9)
+receipt_011  | WARN    |    65 |   ~14% |    23% | good          | Crop/Glare(9)
+receipt_012  | WARN    |    65 |    ~0% |     0% | empty         | none
 
-receipt_002 [FAIL] score=25/100
-  OCR: 0 chars, strength=0.000
-  Items: recall=0% precision=100% F1=0%
-  Total: $0.00 / $5.01 (100% off)
-  Merchant: wrong
-
-receipt_003 [FAIL] score=25/100
-  OCR: 691 chars, strength=0.363
-  Items: recall=0% precision=100% F1=0%
-  Total: $0.00 / $97.18 (100% off)
-  Merchant: wrong
-
-receipt_004 [PASS] score=74/100
-  OCR: 1240 chars, strength=0.986
-  Items: recall=56% precision=83% F1=67%
-  Total: $85.61 / $89.13 (4% off)
-  Merchant: correct
-
-receipt_005 [FAIL] score=25/100
-  OCR: 269 chars, strength=0.388
-  Items: recall=0% precision=100% F1=0%
-  Total: $0.00 / $18.49 (100% off)
-  Merchant: wrong
-
-receipt_006 [PASS] score=73/100
-  OCR: 749 chars, strength=0.978
-  Items: recall=100% precision=67% F1=80%
-  Total: $19.99 / $21.84 (8% off)
-  Merchant: wrong
-
-receipt_007 [FAIL] score=25/100
-  OCR: 203 chars, strength=0.632
-  Items: recall=0% precision=0% F1=0%
-  Total: $21.40 / $21.40 (0% off)
-  Merchant: wrong
+Notes:
+  SKIP = unverifiable receipt (folded/cut; no GT total)
+  Items% = item recall for receipts with full GT item list; ~N% = estimated for count-only GT
+  Total% = 100% - totalDeltaPct

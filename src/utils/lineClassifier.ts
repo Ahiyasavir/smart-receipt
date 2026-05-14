@@ -36,6 +36,9 @@ const TOTAL_RE = [
   /\bamount\s*due\b/i,
   /\bsale\s+amount\b/i,   // Whole Foods credit card receipts
   /\btotal\s+amount\b/i,
+  /\bcelkem\b/i,           // Czech: "total in all"
+  /\bgesamt\b/i,           // German: "total"
+  /\bsumme\b/i,            // German: "sum"
 ];
 
 const SUBTOTAL_RE = [
@@ -122,6 +125,7 @@ const NOISE_RE = [
   /\bitem\b.*\bdescription\b/i,
   /\bdescription\b.*\bamount\b/i,
   /\breceipt\b/i,
+  /\bzlevneno\b/i,         // Czech: "discounted" — price-markdown indicator, not a purchased item
 ];
 
 // Discount lines: explicit savings/coupon entries that carry a positive price amount

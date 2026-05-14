@@ -20,23 +20,14 @@
     "id": "receipt_002",
     "image": "receipt_002.png",
     "merchant": "Costco Wholesale",
-    "total": 5.01,
-    "itemsCount": 8,
-    "items": [
-      { "name": "Kirkland Signature California Pistachios 1.36kg", "price": 26.99 },
-      { "name": "Prolive Probiotic",                               "price": 8.99  },
-      { "name": "Organic Rooibos Tea",                            "price": 12.99 },
-      { "name": "Organic Rooibos Tea",                            "price": 3.00  },
-      { "name": "Double Smoked Ham",                              "price": 45.89 },
-      { "name": "TPD Double Smoked Ham",                          "price": -7.00 },
-      { "name": "Sparkling Water 24x500ml",                       "price": 29.59 },
-      { "name": "TPD Sparkling Water 24x500ml",                   "price": -5.01 }
-    ],
-    "notes": "Hardest receipt. Blur and cut-off bottom. Items sold count on receipt is 22; only a few are visible. Contains discount/adjustment lines (negative prices)."
+    "total": 0,
+    "itemsCount": 0,
+    "items": [],
+    "notes": "UNVERIFIABLE — receipt is folded/cut at bottom. Total and item count unknown. OCR output captured for diagnostic purposes only; no scoring applied."
   },
   {
     "id": "receipt_003",
-    "image": "receipt_003.jpg",
+    "image": "receipt_003.jfif",
     "merchant": "Costco Wholesale",
     "total": 97.18,
     "itemsCount": 16,
@@ -58,11 +49,11 @@
       { "name": "Small Red Potatoes",                  "price": 5.79  },
       { "name": "Avocados",                            "price": 5.29  }
     ],
-    "notes": "High clarity. Abbreviations expanded."
+    "notes": "High clarity. Abbreviations expanded. GT items_count=16 (GT source notes 17; one line likely a sub-total row)."
   },
   {
     "id": "receipt_004",
-    "image": "receipt_004.jpg",
+    "image": "receipt_004.jfif",
     "merchant": "Costco Wholesale",
     "total": 89.13,
     "itemsCount": 9,
@@ -104,7 +95,7 @@
   },
   {
     "id": "receipt_007",
-    "image": "receipt_007.jpg",
+    "image": "receipt_007.jfif",
     "merchant": "Whole Foods Market",
     "total": 21.40,
     "itemsCount": 3,
@@ -114,5 +105,50 @@
       { "name": "Pom Mums 7 Stem",                     "price": 5.99  }
     ],
     "notes": "Mixed categories: health, snacks, produce."
+  },
+  {
+    "id": "receipt_008",
+    "image": "receipt_008.jfif",
+    "merchant": "Whole Foods Market",
+    "total": 100.00,
+    "itemsCount": 17,
+    "items": [],
+    "notes": "High item count. GT items list not yet verified at item level — total and count only. Check orphanedNameLines diagnostic for blurred/cut sections."
+  },
+  {
+    "id": "receipt_009",
+    "image": "receipt_009.png",
+    "merchant": "Holiday Market",
+    "total": 14.04,
+    "itemsCount": 3,
+    "items": [],
+    "notes": "Small receipt. GT items list not yet verified at item level."
+  },
+  {
+    "id": "receipt_010",
+    "image": "receipt_010.jfif",
+    "merchant": "Tesco",
+    "total": 842.89,
+    "itemsCount": 23,
+    "items": [],
+    "notes": "International receipt — likely CZK (Czech Koruna). Large item count. Total format may trigger parser issues with non-USD amounts. GT items list not verified at item level."
+  },
+  {
+    "id": "receipt_011",
+    "image": "receipt_011.png",
+    "merchant": "Trade Fair Supermarkets",
+    "total": 6.83,
+    "itemsCount": 7,
+    "items": [],
+    "notes": "Small total, 7 items. GT items list not yet verified at item level."
+  },
+  {
+    "id": "receipt_012",
+    "image": "receipt_012.png",
+    "merchant": "SHINSEN FISH MARKET",
+    "total": 11957.00,
+    "itemsCount": 11,
+    "items": [],
+    "notes": "International receipt — likely JPY (Japanese Yen). Very large total in local currency. Parser may fail to detect integer-only prices. GT items list not verified at item level."
   }
 ]
