@@ -130,15 +130,14 @@ export default function ReceiptUploader({ onSave }: Props) {
   if (scanState === 'idle' || scanState === 'error') {
     return (
       <div className="space-y-3">
-        {/* Scope notice — honest about what works */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 space-y-1">
-          <p className="font-semibold">Supported receipts only</p>
-          <ul className="list-disc list-inside space-y-0.5 text-amber-700">
-            <li>Printed English supermarket receipts</li>
-            <li>Flat, well-lit, in-focus photo or scan</li>
-            <li>Standard single-column format</li>
+        {/* Scope notice */}
+        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-800 space-y-1">
+          <p className="font-semibold">Tips for best results</p>
+          <ul className="list-disc list-inside space-y-0.5 text-blue-700">
+            <li>Flat, well-lit receipt — avoid shadows and glare</li>
+            <li>English and Hebrew receipts both supported</li>
+            <li>Crumpled or blurry receipts may parse partially</li>
           </ul>
-          <p className="text-amber-600 pt-0.5">Hebrew and crumpled receipts are not supported yet.</p>
         </div>
 
         {/* Camera + Gallery buttons */}

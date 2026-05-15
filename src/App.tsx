@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { AppTab, Receipt, ReceiptItem } from './types';
+import { AppTab, Receipt, ReceiptItem, Category } from './types';
 import { useAuth } from './hooks/useAuth';
 import { useReceipts } from './hooks/useReceipts';
 import { useBudgets } from './hooks/useBudgets';
@@ -16,9 +16,11 @@ const NAV_TABS = [
   { id: 'scan'      as const, label: 'Scan',      icon: '📷' },
   { id: 'dashboard' as const, label: 'Dashboard',  icon: '📊' },
   { id: 'history'   as const, label: 'History',    icon: '🗂️'  },
+  { id: 'settings'  as const, label: 'Settings',   icon: '⚙️'  },
 ];
 
-// ── Spending alert: check if any category exceeds its monthly budget ──────────
+type SortKey = 'date-desc' | 'date-asc' | 'amount-desc' | 'amount-asc' | 'store';
+
 function useSpendingAlerts(
   receipts: Receipt[],
   budgets: ReturnType<typeof useBudgets>['budgets'],
@@ -27,28 +29,20 @@ function useSpendingAlerts(
     const now   = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthly = receipts.filter((r) => new Date(r.date) >= start);
-
     const totals: Partial<Record<string, number>> = {};
-    for (const r of monthly) {
-      for (const item of r.items) {
+    for (const r of monthly)
+      for (const item of r.items)
         totals[item.category] = (totals[item.category] ?? 0) + item.amount;
-      }
-    }
 
-    const alerts: { category: string; spent: number; budget: number; label: string }[] = [];
-    for (const [cat, budget] of Object.entries(budgets.monthly)) {
-      if (!budget) continue;
-      const spent = totals[cat] ?? 0;
-      if (spent > budget * 0.8) {
-        alerts.push({
-          category: cat,
-          spent,
-          budget,
-          label: CATEGORY_META[cat as keyof typeof CATEGORY_META]?.label ?? cat,
-        });
-      }
-    }
-    return alerts;
+    return Object.entries(budgets.monthly)
+      .filter(([, budget]) => !!budget)
+      .map(([cat, budget]) => ({
+        category: cat,
+        spent: totals[cat] ?? 0,
+        budget: budget!,
+        label: CATEGORY_META[cat as keyof typeof CATEGORY_META]?.label ?? cat,
+      }))
+      .filter((a) => a.spent > a.budget * 0.8);
   }, [receipts, budgets]);
 }
 
@@ -60,16 +54,16 @@ export default function App() {
   const [selectedReceipt, setSelectedReceipt] = useState<Receipt | null>(null);
   const [confirmDelete,   setConfirmDelete]   = useState(false);
   const [historySearch,   setHistorySearch]   = useState('');
+  const [historyCat,      setHistoryCat]      = useState<Category | 'all'>('all');
+  const [historySort,     setHistorySort]     = useState<SortKey>('date-desc');
   const [toast,           setToast]           = useState<string | null>(null);
   const [budgetOpen,      setBudgetOpen]      = useState(false);
   const [bankImportOpen,  setBankImportOpen]  = useState(false);
   const [darkMode,        setDarkMode]        = useState(() => localStorage.getItem('smartreceipt_dark') === '1');
 
-  // PWA install prompt
   const installPromptRef = useRef<Event & { prompt: () => Promise<void> } | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
-  // Dark mode: toggle class on <html>
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('smartreceipt_dark', darkMode ? '1' : '0');
@@ -93,14 +87,17 @@ export default function App() {
 
   useEffect(() => { setConfirmDelete(false); }, [selectedReceipt]);
 
-  const { receipts, addReceipt, updateItem, updateReceipt, removeReceipt } = useReceipts(userId);
+  const { receipts, loading: receiptsLoading, addReceipt, updateItem, updateReceipt, removeReceipt } = useReceipts(userId);
   const { budgets, updateBudgets } = useBudgets(userId);
   const spendingAlerts = useSpendingAlerts(receipts, budgets);
+
+  const haptic = (ms = 30) => navigator.vibrate?.(ms);
 
   const switchTab = (t: AppTab) => {
     setTab(t);
     setSelectedReceipt(null);
     setHistorySearch('');
+    setHistoryCat('all');
   };
 
   const handleItemChange = (item: ReceiptItem) => {
@@ -127,7 +124,6 @@ export default function App() {
       '',
       ...receipt.items.map((i) => `• ${i.name}: $${i.amount.toFixed(2)}`),
     ].join('\n');
-
     if (navigator.share) {
       await navigator.share({ title: `Receipt — ${receipt.storeName}`, text });
     } else {
@@ -137,41 +133,62 @@ export default function App() {
   };
 
   const handleBankImport = async (imported: Receipt[]) => {
-    let count = 0;
-    for (const r of imported) {
-      await addReceipt(r);
-      count++;
-    }
-    setToast(`Imported ${count} transactions`);
+    for (const r of imported) await addReceipt(r);
+    setToast(`Imported ${imported.length} transactions`);
   };
 
-  const query = historySearch.toLowerCase().trim();
-  const filteredReceipts = query
-    ? receipts.filter((r) => r.storeName.toLowerCase().includes(query))
-    : receipts;
+  // ── Filtered + sorted receipts ────────────────────────────────────────────
+  const filteredReceipts = useMemo(() => {
+    const q = historySearch.toLowerCase().trim();
+    let list = receipts;
+
+    // text search: store name + item names
+    if (q) {
+      list = list.filter((r) =>
+        r.storeName.toLowerCase().includes(q) ||
+        r.items.some((i) => i.name.toLowerCase().includes(q)) ||
+        (r.notes?.toLowerCase().includes(q) ?? false),
+      );
+    }
+
+    // category filter
+    if (historyCat !== 'all') {
+      list = list.filter((r) => r.items.some((i) => i.category === historyCat));
+    }
+
+    // sort
+    return [...list].sort((a, b) => {
+      switch (historySort) {
+        case 'date-asc':    return new Date(a.date).getTime() - new Date(b.date).getTime();
+        case 'amount-desc': return b.total - a.total;
+        case 'amount-asc':  return a.total - b.total;
+        case 'store':       return a.storeName.localeCompare(b.storeName);
+        default:            return new Date(b.date).getTime() - new Date(a.date).getTime();
+      }
+    });
+  }, [receipts, historySearch, historyCat, historySort]);
+
   const historyTotal = receipts.reduce((s, r) => s + r.total, 0);
+
+  const dm = darkMode;
 
   // ── Auth gate ─────────────────────────────────────────────────────────────
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-3xl animate-pulse">🧾</div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-4xl animate-pulse">🧾</div>
       </div>
     );
   }
-
   if (!user) return <AuthScreen />;
-
-  const dm = darkMode;
 
   return (
     <div className={`min-h-screen ${dm ? 'bg-gray-900 text-white' : 'bg-gray-50'}`}>
-      {/* ── Header ────────────────────────────────────────────────── */}
-      <header className={`${dm ? 'bg-gray-800 shadow-gray-700' : 'bg-white'} shadow-sm sticky top-0 z-40`}>
+      {/* ── Header ──────────────────────────────────────────────── */}
+      <header className={`${dm ? 'bg-gray-800' : 'bg-white'} shadow-sm sticky top-0 z-40`}>
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className={`text-lg font-bold ${dm ? 'text-white' : 'text-gray-900'}`}>🧾 SmartReceipt</h1>
           <div className="flex items-center gap-2">
-            {/* Dark mode toggle */}
             <button
               onClick={() => setDarkMode((v) => !v)}
               className={`rounded-full w-8 h-8 flex items-center justify-center text-base ${dm ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
@@ -179,13 +196,12 @@ export default function App() {
             >
               {dm ? '☀️' : '🌙'}
             </button>
-            {/* User email + sign out */}
             <button
               onClick={signOut}
               className={`flex items-center gap-1.5 ${dm ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} rounded-full px-3 py-1 transition-colors`}
               title="Sign out"
             >
-              <span className="text-xs font-medium truncate max-w-[120px]" style={{ color: dm ? '#d1d5db' : '#374151' }}>
+              <span className={`text-xs font-medium truncate max-w-[110px] ${dm ? 'text-gray-300' : 'text-gray-700'}`}>
                 {user.email?.split('@')[0]}
               </span>
               <span className="text-gray-400 text-xs">↗</span>
@@ -209,14 +225,10 @@ export default function App() {
       {tab === 'dashboard' && spendingAlerts.length > 0 && (
         <div className="max-w-lg mx-auto px-4 pt-3 space-y-2">
           {spendingAlerts.map((a) => (
-            <div
-              key={a.category}
-              className={`rounded-xl px-3 py-2 flex items-center gap-2 text-sm ${
-                a.spent > a.budget
-                  ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-                  : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
-              }`}
-            >
+            <div key={a.category} className={`rounded-xl px-3 py-2 flex items-center gap-2 text-sm ${
+              a.spent > a.budget ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
+                                 : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+            }`}>
               <span>{a.spent > a.budget ? '🚨' : '⚠️'}</span>
               <span>
                 <strong>{a.label}</strong>:&nbsp;
@@ -238,6 +250,7 @@ export default function App() {
             onSave={(receipt) => {
               addReceipt(receipt);
               setToast(`Saved — ${receipt.storeName}`);
+              haptic(60);
               switchTab('history');
             }}
           />
@@ -256,92 +269,145 @@ export default function App() {
         {/* HISTORY tab — list view */}
         {tab === 'history' && !selectedReceipt && (
           <div className="space-y-3">
-            <div className="flex items-baseline justify-between">
+            {/* Header row */}
+            <div className="flex items-center justify-between">
               <h2 className={`font-semibold text-sm uppercase tracking-wide ${dm ? 'text-gray-300' : 'text-gray-700'}`}>
-                Saved Receipts
+                Receipts
               </h2>
               <div className="flex items-center gap-2">
                 {receipts.length > 0 && (
-                  <p className="text-xs text-gray-400">
-                    {receipts.length} · ${historyTotal.toFixed(2)}
-                  </p>
+                  <span className="text-xs text-gray-400">{receipts.length} · ${historyTotal.toFixed(2)}</span>
                 )}
-                {/* Export CSV */}
                 {receipts.length > 0 && (
-                  <button
-                    onClick={() => exportReceiptsCsv(receipts)}
-                    className="text-xs text-blue-500 hover:text-blue-700 font-medium"
-                    title="Export to CSV"
-                  >
+                  <button onClick={() => exportReceiptsCsv(receipts)} className="text-xs text-blue-500 hover:text-blue-700 font-medium" title="Export all to CSV">
                     ⬇ CSV
                   </button>
                 )}
-                {/* Bank import */}
-                <button
-                  onClick={() => setBankImportOpen(true)}
-                  className="text-xs text-blue-500 hover:text-blue-700 font-medium"
-                  title="Import bank statement"
-                >
+                <button onClick={() => setBankImportOpen(true)} className="text-xs text-blue-500 hover:text-blue-700 font-medium" title="Import bank CSV">
                   ⬆ Bank
                 </button>
               </div>
             </div>
 
-            {receipts.length > 0 && (
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
-                <input
-                  type="text"
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  placeholder="Search by store name…"
-                  className={`w-full border rounded-xl pl-8 pr-8 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm ${
-                    dm ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' : 'bg-white border-gray-200'
-                  }`}
-                />
-                {historySearch && (
-                  <button
-                    onClick={() => setHistorySearch('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm"
-                    aria-label="Clear search"
-                  >
-                    ✕
-                  </button>
-                )}
+            {/* Search */}
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+              <input
+                type="text"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Search stores, items, notes…"
+                className={`w-full border rounded-xl pl-8 pr-8 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm ${
+                  dm ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' : 'bg-white border-gray-200'
+                }`}
+              />
+              {historySearch && (
+                <button onClick={() => setHistorySearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm" aria-label="Clear search">✕</button>
+              )}
+            </div>
+
+            {/* Category filter + Sort */}
+            <div className="flex gap-2">
+              <select
+                value={historyCat}
+                onChange={(e) => setHistoryCat(e.target.value as Category | 'all')}
+                className={`flex-1 border rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-300 ${
+                  dm ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700'
+                }`}
+              >
+                <option value="all">All categories</option>
+                {(Object.keys(CATEGORY_META) as Category[]).filter((c) => c !== 'other').map((c) => (
+                  <option key={c} value={c}>{CATEGORY_META[c].emoji} {CATEGORY_META[c].label}</option>
+                ))}
+              </select>
+              <select
+                value={historySort}
+                onChange={(e) => setHistorySort(e.target.value as SortKey)}
+                className={`flex-1 border rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-300 ${
+                  dm ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700'
+                }`}
+              >
+                <option value="date-desc">Newest first</option>
+                <option value="date-asc">Oldest first</option>
+                <option value="amount-desc">Highest amount</option>
+                <option value="amount-asc">Lowest amount</option>
+                <option value="store">Store name A–Z</option>
+              </select>
+            </div>
+
+            {/* Loading skeleton */}
+            {receiptsLoading && (
+              <div className="space-y-3">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-4 shadow-sm animate-pulse`}>
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-2 flex-1">
+                        <div className={`h-4 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded w-2/5`} />
+                        <div className={`h-3 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded w-1/3`} />
+                        <div className="flex gap-1.5">
+                          <div className={`h-4 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded-full w-16`} />
+                          <div className={`h-4 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded-full w-14`} />
+                        </div>
+                      </div>
+                      <div className={`h-7 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded w-14 ml-4`} />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
-            {receipts.length === 0 && (
+            {/* Empty states */}
+            {!receiptsLoading && receipts.length === 0 && (
               <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-10 text-center shadow-sm`}>
-                <div className="text-4xl mb-2">🗂️</div>
-                <p className="text-gray-400 text-sm">No saved receipts yet</p>
+                <div className="text-4xl mb-3">🗂️</div>
+                <p className={`font-semibold text-sm ${dm ? 'text-gray-200' : 'text-gray-700'}`}>No receipts yet</p>
+                <p className="text-xs text-gray-400 mt-1 mb-4">Scan a receipt or import from your bank</p>
+                <button onClick={() => switchTab('scan')} className="bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors">
+                  Scan first receipt
+                </button>
               </div>
             )}
 
-            {receipts.length > 0 && filteredReceipts.length === 0 && (
+            {!receiptsLoading && receipts.length > 0 && filteredReceipts.length === 0 && (
               <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-8 text-center shadow-sm`}>
-                <p className="text-gray-400 text-sm">No results for "{historySearch}"</p>
+                <p className="text-gray-400 text-sm">No receipts match your filters</p>
+                <button onClick={() => { setHistorySearch(''); setHistoryCat('all'); }} className="text-blue-500 text-xs mt-2 hover:underline">Clear filters</button>
               </div>
             )}
 
-            {filteredReceipts.map((r) => (
+            {/* Receipt list */}
+            {!receiptsLoading && filteredReceipts.map((r) => (
               <button
                 key={r.id}
-                onClick={() => setSelectedReceipt(r)}
-                className={`w-full ${dm ? 'bg-gray-800 hover:bg-gray-750' : 'bg-white hover:shadow-md'} rounded-2xl p-4 shadow-sm text-left active:shadow-sm transition-shadow`}
+                onClick={() => { haptic(); setSelectedReceipt(r); }}
+                className={`w-full ${dm ? 'bg-gray-800 hover:bg-gray-750' : 'bg-white hover:shadow-md'} rounded-2xl p-4 shadow-sm text-left active:scale-[0.99] transition-all`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className={`font-semibold truncate ${dm ? 'text-white' : 'text-gray-800'}`}>{r.storeName}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className={`font-semibold truncate max-w-[60%] ${dm ? 'text-white' : 'text-gray-800'}`}>{r.storeName}</p>
                       {r.source === 'bank-sync' && (
-                        <span className="shrink-0 text-[10px] font-semibold bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full">🏦 Bank</span>
+                        <span className="text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-full shrink-0">🏦 Bank</span>
+                      )}
+                      {r.source === 'bank-import' && (
+                        <span className="text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full shrink-0">📂 Import</span>
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(r.date).toLocaleDateString()} · {r.items.length} item{r.items.length !== 1 ? 's' : ''}
                       {r.notes && <span className="ml-1 text-blue-400">· {r.notes}</span>}
                     </p>
+                    {/* Category pills for the receipt */}
+                    {r.items.length > 0 && (
+                      <div className="flex gap-1 mt-1.5 flex-wrap">
+                        {[...new Set(r.items.map((i) => i.category))].slice(0, 3).map((cat) => (
+                          <span key={cat} className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                            style={{ backgroundColor: CATEGORY_META[cat]?.color + '22', color: CATEGORY_META[cat]?.color }}>
+                            {CATEGORY_META[cat]?.emoji} {CATEGORY_META[cat]?.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <p className="text-lg font-bold text-blue-600 ml-3 shrink-0">
                     ${r.total.toFixed(2)}
@@ -355,10 +421,7 @@ export default function App() {
         {/* HISTORY tab — detail view */}
         {tab === 'history' && selectedReceipt && (
           <div className="space-y-4">
-            <button
-              onClick={() => setSelectedReceipt(null)}
-              className="flex items-center gap-1 text-blue-600 text-sm font-medium"
-            >
+            <button onClick={() => setSelectedReceipt(null)} className="flex items-center gap-1 text-blue-600 text-sm font-medium">
               ← Back
             </button>
 
@@ -373,11 +436,7 @@ export default function App() {
               <p className="text-3xl font-bold mt-1">${selectedReceipt.total.toFixed(2)}</p>
             </div>
 
-            <ItemList
-              items={selectedReceipt.items}
-              onItemChange={handleItemChange}
-              editable
-            />
+            <ItemList items={selectedReceipt.items} onItemChange={handleItemChange} editable />
 
             {/* Notes */}
             <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm p-4`}>
@@ -398,62 +457,158 @@ export default function App() {
 
             {/* Action buttons */}
             <div className="flex gap-2">
-              <button
-                onClick={() => handleShare(selectedReceipt)}
-                className={`flex-1 border ${dm ? 'border-blue-700 text-blue-400' : 'border-blue-300 text-blue-600'} py-3 rounded-xl text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors`}
-              >
+              <button onClick={() => handleShare(selectedReceipt)}
+                className={`flex-1 border ${dm ? 'border-blue-700 text-blue-400' : 'border-blue-300 text-blue-600'} py-3 rounded-xl text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors`}>
                 Share 📤
               </button>
-              <button
-                onClick={() => exportReceiptsCsv([selectedReceipt])}
-                className={`flex-1 border ${dm ? 'border-gray-600 text-gray-300' : 'border-gray-300 text-gray-600'} py-3 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors`}
-              >
-                Export CSV ⬇
+              <button onClick={() => exportReceiptsCsv([selectedReceipt])}
+                className={`flex-1 border ${dm ? 'border-gray-600 text-gray-300' : 'border-gray-300 text-gray-600'} py-3 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors`}>
+                Export ⬇
               </button>
             </div>
 
             {!confirmDelete ? (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                className="w-full border border-red-300 text-red-500 py-3 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors"
-              >
+              <button onClick={() => setConfirmDelete(true)}
+                className="w-full border border-red-300 text-red-500 py-3 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors">
                 Delete Receipt
               </button>
             ) : (
               <div className="flex gap-2">
-                <button
-                  onClick={() => setConfirmDelete(false)}
-                  className="flex-1 border border-gray-300 text-gray-600 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-                >
+                <button onClick={() => setConfirmDelete(false)}
+                  className="flex-1 border border-gray-300 text-gray-600 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    removeReceipt(selectedReceipt.id);
-                    setSelectedReceipt(null);
-                  }}
-                  className="flex-1 bg-red-500 text-white py-3 rounded-xl text-sm font-medium hover:bg-red-600 transition-colors"
-                >
+                  onClick={() => { removeReceipt(selectedReceipt.id); setSelectedReceipt(null); }}
+                  className="flex-1 bg-red-500 text-white py-3 rounded-xl text-sm font-medium hover:bg-red-600 transition-colors">
                   Confirm Delete
                 </button>
               </div>
             )}
           </div>
         )}
+        {/* SETTINGS tab */}
+        {tab === 'settings' && (
+          <div className="space-y-4">
+            {/* Account */}
+            <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Account</h3>
+              </div>
+              <div className="px-4 py-3 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-xl shrink-0">
+                  {user.email?.[0].toUpperCase() ?? '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm text-gray-800 dark:text-white truncate">{user.email}</p>
+                  <p className="text-xs text-gray-400">{receipts.length} receipt{receipts.length !== 1 ? 's' : ''} synced</p>
+                </div>
+              </div>
+              <div className="px-4 pb-3">
+                <button onClick={signOut}
+                  className="w-full border border-red-200 text-red-500 dark:border-red-800 dark:text-red-400 py-2.5 rounded-xl text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                  Sign Out
+                </button>
+              </div>
+            </div>
+
+            {/* Appearance */}
+            <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Appearance</h3>
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-800 dark:text-white">Dark Mode</p>
+                  <p className="text-xs text-gray-400">Switch between light and dark themes</p>
+                </div>
+                <button
+                  onClick={() => setDarkMode((v) => !v)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${darkMode ? 'bg-blue-600' : 'bg-gray-200'}`}
+                  aria-label="Toggle dark mode"
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${darkMode ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            </div>
+
+            {/* Data */}
+            <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Data</h3>
+              </div>
+              <div className="px-4 py-3 space-y-2">
+                <button onClick={() => exportReceiptsCsv(receipts)}
+                  className={`w-full flex items-center gap-3 ${dm ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} rounded-xl p-2.5 transition-colors text-left`}>
+                  <span className="text-xl">⬇️</span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">Export all to CSV</p>
+                    <p className="text-xs text-gray-400">Download {receipts.length} receipt{receipts.length !== 1 ? 's' : ''} as spreadsheet</p>
+                  </div>
+                </button>
+                <button onClick={() => { switchTab('history'); setBankImportOpen(true); }}
+                  className={`w-full flex items-center gap-3 ${dm ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} rounded-xl p-2.5 transition-colors text-left`}>
+                  <span className="text-xl">⬆️</span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">Import bank CSV</p>
+                    <p className="text-xs text-gray-400">Upload bank statement to add transactions</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Budgets shortcut */}
+            <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Budgets</h3>
+              </div>
+              <button onClick={() => setBudgetOpen(true)}
+                className={`w-full flex items-center gap-3 px-4 py-3 ${dm ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors text-left`}>
+                <span className="text-xl">💰</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white">Set spending budgets</p>
+                  <p className="text-xs text-gray-400">Track weekly and monthly limits per category</p>
+                </div>
+                <span className="text-gray-300 dark:text-gray-600">›</span>
+              </button>
+            </div>
+
+            {/* App info */}
+            <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">About</h3>
+              </div>
+              <div className="px-4 py-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">App</span>
+                  <span className="font-medium text-gray-800 dark:text-white">SmartReceipt</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">OCR engine</span>
+                  <span className="font-medium text-gray-800 dark:text-white">Tesseract.js</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Storage</span>
+                  <span className="font-medium text-gray-800 dark:text-white">Supabase cloud</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 dark:text-gray-400">Receipts</span>
+                  <span className="font-medium text-gray-800 dark:text-white">{receipts.length} stored</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* ── Modals ──────────────────────────────────────────────── */}
-      {budgetOpen && (
-        <BudgetModal budgets={budgets} onSave={updateBudgets} onClose={() => setBudgetOpen(false)} />
-      )}
-      {bankImportOpen && (
-        <BankImportModal onImport={handleBankImport} onClose={() => setBankImportOpen(false)} />
-      )}
+      {budgetOpen && <BudgetModal budgets={budgets} onSave={updateBudgets} onClose={() => setBudgetOpen(false)} />}
+      {bankImportOpen && <BankImportModal onImport={handleBankImport} onClose={() => setBankImportOpen(false)} />}
 
       {/* ── Toast ───────────────────────────────────────────────── */}
       {toast && (
         <div className="fixed bottom-20 left-0 right-0 flex justify-center z-50 pointer-events-none px-4">
-          <div className="bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-2xl shadow-lg">
+          <div className="bg-emerald-600 text-white text-sm font-medium px-5 py-2.5 rounded-2xl shadow-lg animate-bounce-once">
             ✓ {toast}
           </div>
         </div>
@@ -463,15 +618,10 @@ export default function App() {
       <nav className={`fixed bottom-0 left-0 right-0 ${dm ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-t z-40`}>
         <div className="max-w-lg mx-auto flex">
           {NAV_TABS.map(({ id, label, icon }) => (
-            <button
-              key={id}
-              onClick={() => switchTab(id)}
+            <button key={id} onClick={() => switchTab(id)}
               className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-colors ${
-                tab === id
-                  ? 'text-blue-600'
-                  : dm ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
+                tab === id ? 'text-blue-600' : dm ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
+              }`}>
               <span className="relative text-xl leading-none">
                 {icon}
                 {id === 'history' && receipts.length > 0 && (

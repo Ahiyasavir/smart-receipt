@@ -17,6 +17,13 @@ const RULES: Record<Exclude<Category, 'other'>, string[]> = {
     'restaurant', 'cafe', 'diner', 'bistro', 'eatery', 'grill', 'bar', 'pub', 'tavern',
     'takeout', 'delivery', 'combo', 'meal', 'lunch', 'dinner', 'breakfast', 'brunch',
     'mcdonalds', 'starbucks', 'subway', 'kfc', 'dominos', 'chipotle', 'dunkin',
+    // Israeli food & restaurants
+    'cofix', 'aroma', 'cafe cafe', 'roladin', 'dr. shakshuka', 'benedict', 'taizu', 'black', 'white',
+    'hummus', 'tahini', 'jachnun', 'sabich', 'laffa', 'malabi', 'knafeh', 'burekas', 'bourekas',
+    'schnitzel', 'shnitzel', 'shakshuka', 'cholent', 'chamin', 'krembo', 'bisli', 'bamba',
+    'פלאפל', 'שווארמה', 'חומוס', 'שקשוקה', 'בורקס', 'לאפה', 'פיתה', 'שניצל',
+    'קפה', 'מסעדה', 'ארוחה', 'צהריים', 'ערב', 'בוקר', 'ברנץ',
+    'מקדונלד', 'סטארבקס', 'ברגר קינג', 'דומינו', 'פיצה', 'סושי',
   ],
   groceries: [
     // Dairy
@@ -55,15 +62,22 @@ const RULES: Record<Exclude<Category, 'other'>, string[]> = {
     'floss', 'razor', 'feminine', 'diaper', 'wipe', 'sunscreen', 'moisturizer',
     // Signals
     'organic', 'natural', 'fresh', 'frozen', 'produce', 'grocery', 'deli', 'bakery',
+    // Israeli grocery signals (Hebrew)
+    'שופרסל', 'רמי לוי', 'מגה', 'ויקטורי', 'יוחננוף', 'אושר עד', 'חצי חינם',
+    'סופרמרקט', 'מכולת', 'ירקות', 'פירות', 'בשר', 'עוף', 'דגים', 'גבינה', 'חלב',
+    'לחם', 'ביצים', 'שמן', 'סוכר', 'קמח', 'אורז', 'פסטה',
   ],
   transport: [
     'gas', 'fuel', 'petrol', 'diesel', 'gasoline', 'unleaded', 'premium',
     'parking', 'toll', 'fare', 'ticket',
-    'uber', 'lyft', 'taxi', 'cab', 'rideshare', 'bolt', 'waze',
+    'uber', 'lyft', 'taxi', 'cab', 'rideshare', 'bolt', 'waze', 'gett',
     'bus', 'train', 'subway', 'metro', 'transit', 'tram', 'rail',
-    'airline', 'flight', 'airport', 'boarding', 'lufthansa', 'ryanair', 'easyjet',
+    'airline', 'flight', 'airport', 'boarding', 'lufthansa', 'ryanair', 'easyjet', 'el al',
     'rental', 'carwash', 'car wash', 'oil change', 'tire', 'mechanic', 'service',
     'electric charge', 'ev charge', 'charging station',
+    // Israeli transport
+    'ten biscard', 'rav kav', 'רב קו', 'אגד', 'דן', 'מטרו', 'רכבת', 'אלעל',
+    'חניה', 'דלק', 'סונול', 'פז', 'דור אלון', 'yellow', 'גט',
   ],
   entertainment: [
     'movie', 'cinema', 'theater', 'theatre', 'concert', 'ticket', 'show', 'event',
@@ -73,6 +87,9 @@ const RULES: Record<Exclude<Category, 'other'>, string[]> = {
     'book', 'magazine', 'comic', 'album', 'streaming', 'subscription',
     'museum', 'gallery', 'zoo', 'park', 'aquarium', 'exhibit',
     'steam', 'playstation', 'xbox', 'nintendo', 'gaming',
+    // Israeli entertainment
+    'yes', 'hot', 'cellcom tv', 'partner tv', 'קולנוע', 'הצגה', 'מוזיאון', 'גן חיות',
+    'יס', 'הוט', 'סרט', 'כרטיס',
   ],
   health: [
     'pharmacy', 'medicine', 'drug', 'prescription', 'rx',
@@ -83,6 +100,10 @@ const RULES: Record<Exclude<Category, 'other'>, string[]> = {
     'gym', 'fitness', 'wellness', 'health', 'yoga', 'pilates', 'crossfit',
     'ibuprofen', 'paracetamol', 'aspirin', 'tylenol', 'advil', 'nyquil',
     'contact lens', 'glasses', 'sunglasses', 'hearing',
+    // Israeli health
+    'super-pharm', 'superpharm', 'be', 'new-pharm', 'clalit', 'maccabi', 'leumit', 'meuhedet',
+    'קופת חולים', 'כללית', 'מכבי', 'לאומית', 'מאוחדת', 'בית מרקחת', 'רופא', 'קליניקה',
+    'כושר', 'חדר כושר', 'תרופה', 'ויטמין',
   ],
   shopping: [
     // Clothing
@@ -103,6 +124,9 @@ const RULES: Record<Exclude<Category, 'other'>, string[]> = {
     'toy', 'puzzle', 'lego', 'craft', 'art', 'paint', 'stationery', 'pen', 'notebook',
     // Beauty
     'makeup', 'lipstick', 'mascara', 'foundation', 'perfume', 'cologne', 'nail',
+    // Israeli shopping
+    'castro', 'renuar', 'golf', 'terminal x', 'factory', 'hoodies', 'kitan', 'delta',
+    'ace', 'home center', 'ikea', 'כסף', 'בגד', 'נעל', 'שמלה', 'חולצה', 'מכנס',
   ],
   utilities: [
     'electric', 'electricity', 'internet', 'wifi', 'broadband', 'fiber',
@@ -110,6 +134,11 @@ const RULES: Record<Exclude<Category, 'other'>, string[]> = {
     'heating', 'gas bill', 'water bill', 'sewage', 'waste', 'trash',
     'subscription fee', 'monthly fee', 'annual fee', 'membership',
     'amazon', 'icloud', 'google one', 'dropbox', 'microsoft', 'adobe',
+    // Israeli utilities & telecom
+    'hot mobile', 'partner', 'cellcom', 'rami', 'pelephone', 'golan telecom', ' 019',
+    'bezeq', 'hot', 'yes', 'iec', 'electric corp', 'mekorot',
+    'ארנונה', 'חשמל', 'מים', 'גז', 'ביטוח', 'שכירות', 'ועד בית',
+    'פרטנר', 'סלקום', 'פלאפון', 'גולן', 'בזק', 'חברת חשמל',
   ],
 };
 
@@ -171,6 +200,59 @@ const MERCHANT_DEFAULTS: Record<string, Category> = {
   'IKEA': 'shopping', 'H&M': 'shopping', 'Zara': 'shopping',
   'Forever 21': 'shopping', 'Old Navy': 'shopping', 'Gap': 'shopping',
   'Nike': 'shopping', 'Adidas': 'shopping', 'Foot Locker': 'shopping',
+  // Israeli grocery supermarkets
+  'Shufersal': 'groceries', 'שופרסל': 'groceries',
+  'Rami Levy': 'groceries', 'רמי לוי': 'groceries',
+  'Mega': 'groceries', 'מגה': 'groceries',
+  'Victory': 'groceries', 'ויקטורי': 'groceries',
+  'Yochananof': 'groceries', 'יוחננוף': 'groceries',
+  'Osher Ad': 'groceries', 'אושר עד': 'groceries',
+  'Tivtam': 'groceries', 'טיב טעם': 'groceries',
+  'AM:PM': 'groceries', 'am:pm': 'groceries',
+  'Keshet Taamim': 'groceries', 'קשת טעמים': 'groceries',
+  'Hazi Hinam': 'groceries', 'חצי חינם': 'groceries',
+  'Mahsane Hashuk': 'groceries', 'מחסני השוק': 'groceries',
+  'קואופ': 'groceries',
+  // Israeli pharmacies
+  'Super-Pharm': 'health', 'SuperPharm': 'health', 'סופר פארם': 'health',
+  'Be': 'health', 'New-Pharm': 'health', 'נופרם': 'health',
+  'Clalit': 'health', 'כללית': 'health',
+  'Maccabi': 'health', 'מכבי': 'health',
+  'Leumit': 'health', 'לאומית': 'health',
+  // Israeli food / cafes
+  'Cofix': 'food', 'קופיקס': 'food',
+  'Aroma': 'food', 'ארומה': 'food',
+  'Roladin': 'food', 'רולדין': 'food',
+  'Cafe Cafe': 'food', 'קפה קפה': 'food',
+  'Domino': 'food', 'דומינו': 'food',
+  'Burgeranch': 'food', 'בורגר ראנץ': 'food',
+  'Japanika': 'food', 'יפניקה': 'food',
+  'Pitaim': 'food', 'פיתאים': 'food',
+  'Hummus Eliyahu': 'food',
+  // Israeli gas stations
+  'Paz': 'transport', 'פז': 'transport',
+  'Sonol': 'transport', 'סונול': 'transport',
+  'Delek': 'transport', 'דלק': 'transport',
+  'Dor Alon': 'transport', 'דור אלון': 'transport',
+  'Ten': 'transport', 'טן': 'transport',
+  // Israeli telecom / utilities
+  'Partner': 'utilities', 'פרטנר': 'utilities',
+  'Cellcom': 'utilities', 'סלקום': 'utilities',
+  'Pelephone': 'utilities', 'פלאפון': 'utilities',
+  'Hot Mobile': 'utilities', 'הוט מובייל': 'utilities',
+  'Golan Telecom': 'utilities', 'גולן טלקום': 'utilities',
+  'Bezeq': 'utilities', 'בזק': 'utilities',
+  'Hot': 'utilities', 'הוט': 'utilities',
+  // Israeli shopping
+  'Castro': 'shopping', 'קסטרו': 'shopping',
+  'Renuar': 'shopping', 'רנואר': 'shopping',
+  'Golf': 'shopping', 'גולף': 'shopping',
+  'Terminal X': 'shopping', 'טרמינל X': 'shopping',
+  'Fox': 'shopping', 'פוקס': 'shopping',
+  'Ace': 'shopping', 'אייס': 'shopping',
+  'Home Center': 'shopping', 'הום סנטר': 'shopping',
+  'KSP': 'shopping', 'קיי.אס.פי': 'shopping',
+  'Ivory': 'shopping', 'Bug': 'shopping',
 };
 
 // ─── Classifier ───────────────────────────────────────────────────────────────

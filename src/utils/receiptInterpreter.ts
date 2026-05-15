@@ -46,6 +46,7 @@ function containsProductVocab(name: string): boolean {
 
 // ─── Merchant detection ───────────────────────────────────────────────────────
 const MERCHANT_PATTERNS: Array<{ re: RegExp; name: string }> = [
+  // US chains
   { re: /walmart/i,             name: 'Walmart' },
   { re: /costco\s*wholesale/i,  name: 'Costco Wholesale' },
   { re: /costco/i,              name: 'Costco Wholesale' },
@@ -73,6 +74,59 @@ const MERCHANT_PATTERNS: Array<{ re: RegExp; name: string }> = [
   { re: /mcdonald/i,            name: "McDonald's" },
   { re: /starbucks/i,           name: 'Starbucks' },
   { re: /subway\b/i,            name: 'Subway' },
+  // Israeli grocery & supermarket chains
+  { re: /שופרסל/,               name: 'שופרסל' },
+  { re: /shufersal/i,           name: 'שופרסל' },
+  { re: /רמי\s*לוי/,            name: 'רמי לוי' },
+  { re: /rami\s*levy/i,         name: 'רמי לוי' },
+  { re: /מגה/,                  name: 'מגה' },
+  { re: /ויקטורי/,              name: 'ויקטורי' },
+  { re: /victory/i,             name: 'ויקטורי' },
+  { re: /יוחננוף/,              name: 'יוחננוף' },
+  { re: /יוחנוף/,               name: 'יוחננוף' },
+  { re: /אושר\s*עד/,            name: 'אושר עד' },
+  { re: /osher\s*ad/i,          name: 'אושר עד' },
+  { re: /טיב\s*טעם/,            name: 'טיב טעם' },
+  { re: /tiv\s*taam/i,          name: 'טיב טעם' },
+  { re: /am:?pm/i,              name: 'AM:PM' },
+  { re: /סופר\s*פארם/,          name: 'סופר פארם' },
+  { re: /super[\s-]?pharm/i,    name: 'סופר פארם' },
+  { re: /superpharm/i,          name: 'סופר פארם' },
+  // Israeli food & coffee chains
+  { re: /קופיקס/,               name: 'קופיקס' },
+  { re: /cofix/i,               name: 'קופיקס' },
+  { re: /ארומה/,                name: 'ארומה' },
+  { re: /aroma/i,               name: 'ארומה' },
+  { re: /רולדין/,               name: 'רולדין' },
+  { re: /roladin/i,             name: 'רולדין' },
+  { re: /קפה\s*קפה/,            name: 'קפה קפה' },
+  { re: /cafe\s*cafe/i,         name: 'קפה קפה' },
+  { re: /ברגר\s*ראנץ/,          name: "Burgeranch" },
+  { re: /burgeranch/i,          name: "Burgeranch" },
+  { re: /גוטה/,                 name: 'גוטה' },
+  { re: /japanika/i,            name: 'Japanika' },
+  // Israeli fuel
+  { re: /פז/,                   name: 'פז' },
+  { re: /\bpaz\b/i,             name: 'פז' },
+  { re: /סונול/,                name: 'סונול' },
+  { re: /sonol/i,               name: 'סונול' },
+  { re: /דלק/,                  name: 'דלק' },
+  { re: /delek/i,               name: 'דלק' },
+  { re: /דור\s*אלון/,           name: 'דור אלון' },
+  { re: /dor\s*alon/i,          name: 'דור אלון' },
+  // Israeli telecom/utilities
+  { re: /פרטנר/,                name: 'פרטנר' },
+  { re: /partner/i,             name: 'פרטנר' },
+  { re: /סלקום/,                name: 'סלקום' },
+  { re: /cellcom/i,             name: 'סלקום' },
+  { re: /פלאפון/,               name: 'פלאפון' },
+  { re: /pelephone/i,           name: 'פלאפון' },
+  { re: /הוט/,                  name: 'HOT' },
+  { re: /\bhot\b/i,             name: 'HOT' },
+  { re: /גולן\s*טלקום/,         name: 'גולן טלקום' },
+  { re: /golan\s*telecom/i,     name: 'גולן טלקום' },
+  { re: /בזק/,                  name: 'בזק' },
+  { re: /bezeq/i,               name: 'בזק' },
 ];
 
 function detectMerchant(lines: string[]): string | null {
@@ -92,7 +146,7 @@ function guessFallbackStoreName(classified: ClassifiedLine[]): string {
     if (
       cl.lineClass === 'noise' &&
       cl.trimmed.length > 2 &&
-      /[a-zA-Z]/.test(cl.trimmed) &&
+      /[a-zA-Zא-ת]/.test(cl.trimmed) &&
       !/^\d/.test(cl.trimmed) &&
       cl.price === null
     ) {
@@ -116,9 +170,11 @@ function scoreConfidence({ nameCandidate, price, hasTrailingArtifact, isMerged }
   const name = nameCandidate.trim();
   const words = name.split(/\s+/);
   const len = name.length;
-  const letters = (name.match(/[a-zA-Z]/g) ?? []).length;
+  // Count both Latin and Hebrew letters
+  const letters = (name.match(/[a-zA-Zא-ת]/g) ?? []).length;
   const letterRatio = len > 0 ? letters / len : 0;
   const longestWord = Math.max(...words.map((w) => w.length));
+  const isHebrew = /[א-ת]/.test(name);
 
   // Name length
   if (len >= 10)      score += 0.15;
@@ -129,20 +185,24 @@ function scoreConfidence({ nameCandidate, price, hasTrailingArtifact, isMerged }
   if (words.length >= 2) score += 0.10;
   if (words.length >= 3) score += 0.05;
 
-  // Letter ratio
+  // Letter ratio — Hebrew words are dense letters so ratio is naturally high
   if (letterRatio >= 0.75)     score += 0.10;
-  else if (letterRatio < 0.40) score -= 0.15;
+  else if (!isHebrew && letterRatio < 0.40) score -= 0.15;
 
-  // Longest word length — very short words suggest abbreviation garbage
-  if (longestWord >= 5)    score += 0.10;
-  else if (longestWord < 3) score -= 0.20;
+  // Longest word length — Hebrew words average 4-6 chars, so lower threshold is OK
+  const minWordLen = isHebrew ? 2 : 3;
+  if (longestWord >= 5)              score += 0.10;
+  else if (longestWord < minWordLen)  score -= 0.20;
 
-  // Product vocabulary hit
+  // Product vocabulary hit (Latin products)
   if (containsProductVocab(name)) score += 0.15;
 
-  // Price plausibility: typical single grocery item is $0.25–$49.99
-  if (price >= 0.25 && price <= 49.99) score += 0.05;
-  else if (price > 200)                 score -= 0.15;
+  // Hebrew item bonus — if it contains Hebrew text, likely a real product name
+  if (isHebrew) score += 0.10;
+
+  // Price plausibility: typical single item is ₪1–₪300 or $0.25–$49.99
+  if (price >= 0.25 && price <= 300) score += 0.05;
+  else if (price > 500)               score -= 0.15;
 
   // Trailing OCR artifact reduces confidence (but doesn't disqualify)
   if (hasTrailingArtifact) score -= 0.10;

@@ -41,6 +41,11 @@ const TOTAL_RE = [
   /\bcelkem\b/i,           // Czech: "total in all"
   /\bgesamt\b/i,           // German: "total"
   /\bsumme\b/i,            // German: "sum"
+  /סה["״]?כ/,             // Hebrew: "total" (סה"כ / סהכ)
+  /סכום\s*לתשלום/,         // Hebrew: "amount to pay"
+  /לתשלום/,                // Hebrew: "to pay"
+  /סכום\s*הקניה/,          // Hebrew: "purchase amount"
+  /סה["״]כ\s*לתשלום/,      // Hebrew: "total to pay"
 ];
 
 const SUBTOTAL_RE = [
@@ -58,6 +63,8 @@ const TAX_RE = [
   /\bgst\b/i,
   /\bpst\b/i,
   /\bexcise\b/i,
+  /מע["״]מ/,              // Hebrew: VAT (מע"מ)
+  /מס\s*ערך\s*מוסף/,       // Hebrew: "value added tax"
 ];
 
 const PAYMENT_RE = [
@@ -81,6 +88,11 @@ const PAYMENT_RE = [
   /\bapple\s*pay\b/i,
   /\bgoogle\s*pay\b/i,
   /\bchange\b/i,
+  /מזומן/,                 // Hebrew: "cash"
+  /כרטיס\s*אשראי/,         // Hebrew: "credit card"
+  /כרטיס\s*חיוב/,          // Hebrew: "debit card"
+  /עודף/,                  // Hebrew: "change"
+  /שולם/,                  // Hebrew: "paid"
 ];
 
 const NOISE_RE = [
@@ -128,6 +140,18 @@ const NOISE_RE = [
   /\bdescription\b.*\bamount\b/i,
   /\breceipt\b/i,
   /\bzlevneno\b/i,         // Czech: "discounted" — price-markdown indicator, not a purchased item
+  /תאריך/,                 // Hebrew: "date"
+  /שעה/,                   // Hebrew: "time"
+  /קופאי/,                 // Hebrew: "cashier"
+  /מספר\s*קבלה/,           // Hebrew: "receipt number"
+  /מספר\s*עסקה/,           // Hebrew: "transaction number"
+  /כתובת/,                 // Hebrew: "address"
+  /טלפון/,                 // Hebrew: "telephone"
+  /תודה\s*שקנית/,          // Hebrew: "thank you for shopping"
+  /תודה\s*על\s*ה/,         // Hebrew: "thank you for the..."
+  /ניקוד/,                 // Hebrew: "points"
+  /חברי\s*מועדון/,         // Hebrew: "club members"
+  /מספר\s*חנות/,           // Hebrew: "store number"
 ];
 
 // Discount lines: explicit savings/coupon entries that carry a positive price amount
@@ -141,6 +165,10 @@ const DISCOUNT_LINE_RE = [
   /\bmanufacturers?\s*coupon\b/i,       // "Manufacturer Coupon  1.00"
   /\bstore\s*coupon\b/i,                // "Store Coupon  0.50"
   /\bloyalty\s*(savings?|discount)\b/i, // "Loyalty Discount  1.25"
+  /הנחה/,                               // Hebrew: "discount"
+  /קופון/,                              // Hebrew: "coupon"
+  /חיסכון/,                             // Hebrew: "savings"
+  /מבצע/,                               // Hebrew: "sale/promotion"
 ];
 
 const STRUCTURAL_RE = [
@@ -150,10 +178,12 @@ const STRUCTURAL_RE = [
   /^\*{3,}/,       // *** HEADER BLOCK ***
 ];
 
+
 // ─── Price extraction ────────────────────────────────────────────────────────
 // Takes the LAST price on a line: "2 @ $1.99  $3.98" → $3.98
 // Accepts 1- or 2-decimal prices to recover OCR truncations like "3.9B" → $3.90.
-const PRICE_RE_GLOBAL = /\$?\s*(\d{1,3}(?:,\d{3})*\.\d{1,2}|\d+\.\d{1,2})/g;
+// Also matches ₪ (shekel) prefixed prices used on Israeli receipts.
+const PRICE_RE_GLOBAL = /[₪$]?\s*(\d{1,3}(?:,\d{3})*\.\d{1,2}|\d+\.\d{1,2})/g;
 
 function extractLastPrice(line: string): number | null {
   const matches = [...line.matchAll(PRICE_RE_GLOBAL)];
@@ -195,8 +225,8 @@ function extractNameCandidate(line: string): string | null {
   // Must precede the quantity-strip so we don't confuse "458287 CRETORS MIX" with
   // a quantity token like "2 @ EA".
   s = s.replace(BARCODE_PREFIX_RE, '');
-  // Strip all price patterns (including 1-decimal truncations like "3.9B" → strip "3.9")
-  s = s.replace(/\$?\s*\d{1,3}(?:,\d{3})*\.\d{1,2}|\$?\s*\d+\.\d{1,2}/g, '');
+  // Strip all price patterns (including shekel-prefixed and 1-decimal truncations)
+  s = s.replace(/[₪$]?\s*\d{1,3}(?:,\d{3})*\.\d{1,2}|[₪$]?\s*\d+\.\d{1,2}/g, '');
   // Strip dropped-decimal price at end of line (secondary fallback: "   3 98 F")
   s = s.replace(/\s{3,}\d{1,3}\s\d{2}\s*[A-Za-z]{0,3}$/, ' ');
   // Strip leading quantity
@@ -205,16 +235,17 @@ function extractNameCandidate(line: string): string | null {
   s = stripTrailingArtifact(s);
   // Strip trailing per-unit residue
   s = s.replace(/\s*[@/]\s*\w+\s*$/, '');
-  // Remove non-word chars except space, hyphen, apostrophe
-  s = s.replace(/[^\w\s'-]/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  // Remove non-word chars except space, hyphen, apostrophe, and Hebrew characters
+  // Hebrew Unicode: א-ת (main block) + װ-״ (ligatures)
+  s = s.replace(/[^\w\s'א-תװ-״-]/g, ' ').replace(/\s{2,}/g, ' ').trim();
   return s.length >= 2 ? s : null;
 }
 
 function isValidNameCandidate(s: string): boolean {
   if (s.length < 4) return false;
-  const letters = (s.match(/[a-zA-Z]/g) ?? []).length;
+  const letters = (s.match(/[a-zA-Zא-ת]/g) ?? []).length;
   if (letters < 2) return false;
-  return s.trim().split(/\s+/).some((t) => t.length >= 3);
+  return s.trim().split(/\s+/).some((t) => t.length >= 2);
 }
 
 // Returns a human-readable reason why a raw name candidate was rejected.
@@ -222,9 +253,9 @@ function nameRejectionReason(rawName: string | null): string {
   if (rawName === null) return 'no name: all chars stripped by price/quantity/artifact rules';
   const s = rawName.trim();
   if (s.length < 4) return `name too short: "${s}" (${s.length} chars, need ≥4)`;
-  const letters = (s.match(/[a-zA-Z]/g) ?? []).length;
+  const letters = (s.match(/[a-zA-Zא-ת]/g) ?? []).length;
   if (letters < 2) return `too few letters: "${s}" (${letters} letter(s), need ≥2)`;
-  return `all words < 3 chars: "${s}"`;
+  return `all words < 2 chars: "${s}"`;
 }
 
 // ─── Classifier ──────────────────────────────────────────────────────────────

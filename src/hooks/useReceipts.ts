@@ -31,17 +31,20 @@ function rowToReceipt(row: ReceiptRow): Receipt {
 
 export function useReceipts(userId: string) {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
-    if (!userId) { setReceipts([]); return; }
+    if (!userId) { setReceipts([]); setLoading(false); return; }
+    setLoading(true);
     supabase
       .from('receipts')
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false })
       .then(({ data, error }) => {
-        if (error) { console.error('receipts load:', error.message); return; }
-        setReceipts((data as ReceiptRow[]).map(rowToReceipt));
+        if (error) { console.error('receipts load:', error.message); }
+        else { setReceipts((data as ReceiptRow[]).map(rowToReceipt)); }
+        setLoading(false);
       });
   }, [userId]);
 
@@ -94,5 +97,5 @@ export function useReceipts(userId: string) {
     setReceipts((prev) => prev.filter((r) => r.id !== id));
   }, [userId]);
 
-  return { receipts, addReceipt, updateReceipt, updateItem, removeReceipt };
+  return { receipts, loading, addReceipt, updateReceipt, updateItem, removeReceipt };
 }

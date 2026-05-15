@@ -7,6 +7,7 @@ export const OCR_MIN_CHARS = 40;
 
 // Scores how useful an OCR result is for receipt parsing (0–1).
 // Prices are the strongest signal; a TOTAL line adds a structural bonus.
+// Handles both Latin and Hebrew text receipts.
 function ocrResultStrength(text: string): number {
   const trimmed = text.trim();
   if (trimmed.length === 0) return 0;
@@ -14,16 +15,22 @@ function ocrResultStrength(text: string): number {
   const lines = trimmed.split('\n').filter((l) => l.trim().length > 2);
   if (lines.length === 0) return 0;
 
-  const priceLines  = lines.filter((l) => /\d+\.\d{2}/.test(l));
+  const priceLines  = lines.filter((l) => /\d+[.,]\d{2}/.test(l));
+  // Hebrew Unicode range: ֐–׿
+  const hebrewLines = lines.filter((l) => /[֐-׿]/.test(l));
   const letterLines = lines.filter((l) => /[a-zA-Z]{3,}/.test(l));
-  const letterRatio = letterLines.length / lines.length;
-  const hasTotalLine = lines.some((l) => /\b(total|subtotal)\b/i.test(l));
+  const hasTextLines = hebrewLines.length + letterLines.length;
+  const textRatio   = Math.min(1, hasTextLines / lines.length);
 
-  const charScore    = Math.min(1, trimmed.length / 400);
-  const priceScore   = Math.min(1, priceLines.length / 6);
-  const structBonus  = hasTotalLine ? 0.10 : 0;
+  // Hebrew receipts use ₪ or plain numbers; English words are rare
+  const hasTotal   = lines.some((l) => /\b(total|subtotal|סהכ|סה"כ|סכום)\b/i.test(l));
+  const hasShekel  = lines.some((l) => /[₪]/.test(l));
 
-  return Math.min(1, charScore * 0.22 + priceScore * 0.52 + letterRatio * 0.16 + structBonus);
+  const charScore   = Math.min(1, trimmed.length / 300);
+  const priceScore  = Math.min(1, priceLines.length / 5);
+  const structBonus = (hasTotal ? 0.10 : 0) + (hasShekel ? 0.05 : 0);
+
+  return Math.min(1, charScore * 0.20 + priceScore * 0.52 + textRatio * 0.18 + structBonus);
 }
 
 const STRENGTH_ACCEPTABLE = 0.45;

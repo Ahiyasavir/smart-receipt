@@ -39,7 +39,7 @@ export interface CategorySummary {
   emoji: string;
 }
 
-export type AppTab = 'scan' | 'dashboard' | 'history';
+export type AppTab = 'scan' | 'dashboard' | 'history' | 'settings';
 
 export type BudgetPeriod = 'weekly' | 'monthly';
 export type BudgetSettings = Partial<Record<Category, number>>;
