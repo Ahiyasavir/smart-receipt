@@ -76,11 +76,30 @@ export async function runOCR(
     prog.offset = 0; prog.scale = 50;
     await setPSM(worker, '6');
     const r1 = await worker.recognize(src1);
-    const s1 = ocrResultStrength(r1.data.text);
 
-    if (s1 >= STRENGTH_ACCEPTABLE) {
+    let bestText = r1.data.text;
+    let bestStrength = ocrResultStrength(r1.data.text);
+
+    // ── Pass 1b: right-edge rescue ───────────────────────────────────────────
+    // Fires immediately when the crop signal is present — regardless of overall
+    // strength. A right-cropped receipt can score strength >= 0.45 (plenty of
+    // readable text words) yet have every price missing. Without this early
+    // check, the strength-gated early return at the bottom would skip padRight
+    // entirely and return a result with no prices.
+    if (image instanceof File && needsRightEdgeRescue(bestText)) {
+      onProgress?.(50, 'rescuing right-edge prices…');
+      try {
+        const srcPad = await preprocessForOCR(image as File, 'padRight');
+        await setPSM(worker, '6');
+        const r1b = await worker.recognize(srcPad);
+        const s1b = ocrResultStrength(r1b.data.text);
+        if (s1b > bestStrength) { bestText = r1b.data.text; bestStrength = s1b; }
+      } catch { /* canvas unavailable or file corrupt — ignore */ }
+    }
+
+    if (bestStrength >= STRENGTH_ACCEPTABLE || !(image instanceof File)) {
       onProgress?.(100, 'done');
-      return r1.data.text;
+      return bestText;
     }
 
     // ── Pass 2: PSM 4 (single column, variable sizes), same image ───────────
@@ -88,9 +107,7 @@ export async function runOCR(
     await setPSM(worker, '4');
     const r2 = await worker.recognize(src1);
     const s2 = ocrResultStrength(r2.data.text);
-
-    let bestText = s2 > s1 ? r2.data.text : r1.data.text;
-    let bestStrength = Math.max(s1, s2);
+    if (s2 > bestStrength) { bestText = r2.data.text; bestStrength = s2; }
 
     if (bestStrength >= STRENGTH_ACCEPTABLE || !(image instanceof File)) {
       onProgress?.(100, 'done');
@@ -172,9 +189,11 @@ export async function runOCR(
       if (s8 > bestStrength) { bestText = r8.data.text; bestStrength = s8; }
     } catch { /* ignore */ }
 
-    // ── Pass 9: right-edge padding rescue ────────────────────────────────────
-    // Fires when name lines are plentiful but price lines are sparse — the telltale
-    // sign that Tesseract is clipping the right margin where prices sit.
+    // ── Pass 9: right-edge rescue fallback ───────────────────────────────────
+    // Safety net for the rare case where all 8 quality passes failed AND the
+    // combined result still shows crop signal. The main crop rescue runs at
+    // pass 1b (before the strength-gated early return) so this only fires
+    // when the receipt is also very low quality overall.
     if (image instanceof File && needsRightEdgeRescue(bestText)) {
       onProgress?.(99, 'rescuing right-edge prices…');
       try {
@@ -182,7 +201,7 @@ export async function runOCR(
         await setPSM(worker, '6');
         const r9 = await worker.recognize(srcPad);
         const s9 = ocrResultStrength(r9.data.text);
-        if (s9 > bestStrength) { bestText = r9.data.text; }
+        if (s9 > bestStrength) { bestText = r9.data.text; bestStrength = s9; }
       } catch { /* ignore */ }
     }
 

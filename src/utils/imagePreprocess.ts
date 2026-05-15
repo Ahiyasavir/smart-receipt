@@ -258,12 +258,13 @@ export async function preprocessForOCR(
   }
 
   if (mode === 'padRight') {
-    // Adds 50px white padding on the right edge, then applies standard preprocessing.
-    // Rescues receipts where Tesseract clips the price column due to tight right margins.
+    // Adds 80px white padding on the right edge to prevent Tesseract from clipping
+    // the price column when the receipt fills the frame edge-to-edge.
+    // Uses direct ImageData copy to avoid a lossy data-URL round-trip.
+    const PAD = 80;
     const { ctx: srcCtx, w, h } = await buildCanvas(file);
     grayscaleContrast(srcCtx, w, h, 1.5);
-    const srcData = srcCtx.canvas.toDataURL('image/png');
-    const PAD = 50;
+    const srcData = srcCtx.getImageData(0, 0, w, h);
     const padded = document.createElement('canvas');
     padded.width = w + PAD;
     padded.height = h;
@@ -271,13 +272,7 @@ export async function preprocessForOCR(
     if (!pCtx) throw new Error('Canvas 2D not available');
     pCtx.fillStyle = '#ffffff';
     pCtx.fillRect(0, 0, w + PAD, h);
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error('padRight reload failed'));
-      img.src = srcData;
-    });
-    pCtx.drawImage(img, 0, 0);
+    pCtx.putImageData(srcData, 0, 0);
     return padded.toDataURL('image/png');
   }
 

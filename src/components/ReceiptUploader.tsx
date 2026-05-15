@@ -267,13 +267,45 @@ export default function ReceiptUploader({ onSave }: Props) {
       {/* Incomplete warning — significant amount unaccounted for + suspicious lines */}
       {parseResult.isIncomplete && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 space-y-2">
-          <p className="font-semibold">Receipt looks incomplete</p>
+          <div className="flex items-center justify-between">
+            <p className="font-semibold">Receipt looks incomplete</p>
+            <span className="text-xs font-mono text-amber-600">
+              {Math.round(diagnostic.completenessRatio * 100)}% captured
+            </span>
+          </div>
+
+          {/* Completeness bar */}
+          <div className="w-full bg-amber-200 rounded-full h-1.5">
+            <div
+              className="bg-amber-500 h-1.5 rounded-full transition-all"
+              style={{ width: `${Math.round(diagnostic.completenessRatio * 100)}%` }}
+            />
+          </div>
+
           <p>
             {parseResult.suspiciousLines.length > 0
-              ? `${parseResult.suspiciousLines.length} line${parseResult.suspiciousLines.length > 1 ? 's' : ''} had prices but couldn't be matched to product names.`
+              ? `${parseResult.suspiciousLines.length} line${parseResult.suspiciousLines.length > 1 ? 's' : ''} had prices but couldn't be matched to items.`
               : 'Some items could not be read.'}{' '}
             Edit the raw OCR text below to correct and re-parse.
           </p>
+
+          {/* Show up to 3 suspicious lines so the user can see what was dropped */}
+          {parseResult.suspiciousLines.length > 0 && (
+            <div className="text-xs text-amber-700 space-y-1">
+              <p className="font-medium">Unmatched lines:</p>
+              <div className="bg-amber-100 rounded-lg px-2 py-1.5 space-y-0.5 font-mono">
+                {parseResult.suspiciousLines.slice(0, 3).map((line) => (
+                  <p key={line} className="truncate text-amber-800">{line}</p>
+                ))}
+                {parseResult.suspiciousLines.length > 3 && (
+                  <p className="text-amber-500 not-font-mono">
+                    +{parseResult.suspiciousLines.length - 3} more — see raw text below
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {partialTips.length > 0 && (
             <div className="text-xs text-amber-700 pt-0.5">
               <p className="font-medium mb-0.5">Possible reasons:</p>
@@ -288,7 +320,22 @@ export default function ReceiptUploader({ onSave }: Props) {
       {/* Mismatch warning — shown when item sum diverges from detected total */}
       {!parseResult.isIncomplete && parseResult.mismatch && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 space-y-2">
-          <p className="font-semibold">Item total may be incomplete</p>
+          <div className="flex items-center justify-between">
+            <p className="font-semibold">Item total may be incomplete</p>
+            <span className="text-xs font-mono text-amber-600">
+              {Math.round(diagnostic.completenessRatio * 100)}% captured
+            </span>
+          </div>
+
+          {diagnostic.completenessRatio < 0.90 && (
+            <div className="w-full bg-amber-200 rounded-full h-1.5">
+              <div
+                className="bg-amber-500 h-1.5 rounded-full transition-all"
+                style={{ width: `${Math.round(diagnostic.completenessRatio * 100)}%` }}
+              />
+            </div>
+          )}
+
           <p>
             Parsed items sum to{' '}
             <strong>${parseResult.itemSum.toFixed(2)}</strong>, but the receipt
@@ -320,6 +367,19 @@ export default function ReceiptUploader({ onSave }: Props) {
         <p className="text-3xl font-bold">${draft.total.toFixed(2)}</p>
         <p className="text-sm opacity-60 mt-0.5">{draft.storeName}</p>
       </div>
+
+      {/* Scan quality summary — compact one-line indicator for good scans with caveats */}
+      {mode === 'partial' && !parseResult.isIncomplete && !parseResult.mismatch && (
+        <div className="flex items-center gap-2 px-1 text-xs text-gray-400">
+          <div className="flex-1 bg-gray-100 rounded-full h-1">
+            <div
+              className="bg-blue-400 h-1 rounded-full"
+              style={{ width: `${Math.round(diagnostic.completenessRatio * 100)}%` }}
+            />
+          </div>
+          <span>{Math.round(diagnostic.completenessRatio * 100)}% of total captured</span>
+        </div>
+      )}
 
       {/* Item list */}
       <ItemList items={draft.items} onItemChange={handleItemChange} editable />

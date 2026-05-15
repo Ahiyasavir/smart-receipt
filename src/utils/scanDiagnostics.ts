@@ -22,6 +22,7 @@ export interface ScanDiagnostic {
   discountLineCount: number; // explicit discount lines detected
   discountSum: number;       // total discount amount (from ParseResult)
   completenessRatio: number; // (itemSum − discounts) / total, clamped 0–1
+  rightCropLikely: boolean;  // high orphaned lines + very few prices → price column cut off
 }
 
 function computeSignals(rawText: string) {
@@ -81,6 +82,13 @@ export function classifyFailureMode(rawText: string, result: ParseResult): ScanD
         ? 0
         : 1;
 
+  // Right-crop: many orphaned name lines + almost no price lines detected.
+  // Distinct from glare (which still produces some prices but with patches missing).
+  const rightCropLikely =
+    orphanedNameLines >= 3 &&
+    priceLineCount <= 1 &&
+    completenessRatio < 0.50;
+
   let mode: ScanFailureMode;
 
   if (charCount < 40) {
@@ -104,6 +112,7 @@ export function classifyFailureMode(rawText: string, result: ParseResult): ScanD
     discountLineCount: result.discountLineCount,
     discountSum: result.discountSum,
     completenessRatio,
+    rightCropLikely,
   };
 }
 
@@ -133,9 +142,13 @@ export function getScanExplanation(diag: ScanDiagnostic): ScanExplanation {
       // is genuinely low. Multi-line receipt formats (Costco, WFM) produce many orphaned
       // name lines even when correctly parsed; gating on completenessRatio < 0.70
       // prevents false positives on those receipts.
-      if (diag.orphanedNameLines >= 3 && diag.completenessRatio < 0.70) {
+      if (diag.rightCropLikely) {
         tips.push(
-          `${diag.orphanedNameLines} item line(s) had no price — receipt may be cropped or have glare on the right edge`,
+          `Price column appears cut off — make sure the full receipt width is in frame and retake`,
+        );
+      } else if (diag.orphanedNameLines >= 3 && diag.completenessRatio < 0.70) {
+        tips.push(
+          `${diag.orphanedNameLines} item line(s) had no price — glare or shadow may be covering the price column`,
         );
       }
 

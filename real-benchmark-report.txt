@@ -1,5 +1,5 @@
 Real Receipt Benchmark Report — Stage 10
-Generated: 2026-05-15T09:21:27.320Z
+Generated: 2026-05-15T09:56:23.734Z
 
 ID           | Verdict | Score | Items% | Total% | Mode          | Diagnostics
 ─────────────────────────────────────────────────────────────────────────────────────

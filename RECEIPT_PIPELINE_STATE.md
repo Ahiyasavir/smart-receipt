@@ -2,12 +2,104 @@
 
 **Date:** 2026-05-15
 **Build status:** ✅ Clean (`tsc --noEmit` passes; benchmark passes)
-**Benchmark:** 100/100 — 6/6 PASS (maintained through Stage 12)
+**Benchmark:** 100/100 — 6/6 PASS (maintained through Stage 13)
 **Robustness:** 84% overall · right-crop 43% · glare 79% · blur 99% · low-contrast 88%
 **Real benchmark (Stage 10):** 72/100 — 7 PASS · 3 WARN · 1 FAIL · 1 SKIP (12 receipts)
 **Real benchmark (Stage 11):** 63/100 — 7 PASS · 2 WARN · 3 FAIL (12 receipts, GT fully item-level)
 **Real benchmark (Stage 12):** 64/100 — 7 PASS · 2 WARN · 3 FAIL (12 receipts)
-**Audit:** 2026-05-15 — see audit section below
+**Real benchmark (Stage 13):** 64/100 — 7 PASS · 2 WARN · 3 FAIL (cached OCR; padRight fix requires --fresh on real images)
+
+---
+
+## What changed in this pass
+
+### Stage 13 — Right-crop rescue, diagnostic sharpening, and review UX (2026-05-15)
+
+#### Priority 1: Right-crop OCR recovery
+
+**`src/utils/ocr.ts` — Pass 1b: early padRight trigger (critical fix)**
+
+Previously, the padRight right-edge rescue (Pass 9) was only reachable after 8 quality passes failed (`bestStrength < 0.45` all the way through). This was wrong: a right-cropped receipt has plenty of readable text (many word lines) which scores `strength >= 0.45` in Pass 1, triggering the early return before padRight ever ran.
+
+Fix: after Pass 1, check `needsRightEdgeRescue(bestText)` and if the crop signal is present, run padRight immediately (as "Pass 1b") before the strength-gated early return. If padRight finds more prices, keep the better result.
+
+```
+// Before: Pass 1 → if strength >= 0.45, return early (padRight never reached for good-quality crops)
+// After:  Pass 1 → if cropSignal, try padRight → then strength check → return early if good
+```
+
+Detection condition (`needsRightEdgeRescue`): nameOnlyLines >= 3 AND priceLines < nameOnlyLines × 40%.
+- Clean receipt: priceLines ≈ nameOnlyLines → condition false → no overhead.
+- Right-cropped receipt: priceLines = 0 → condition true → padRight fires.
+- False positives are safe: padRight result is only used if `ocrStrength > bestStrength`.
+
+**`src/utils/imagePreprocess.ts` — padRight improvements**
+
+1. Increased padding from 50px to 80px (gives Tesseract a wider safety margin at the image edge).
+2. Eliminated the lossy data-URL round-trip: instead of converting to PNG data URL and reloading as an image, the implementation now copies pixel data directly from the grayscale canvas using `getImageData` + `putImageData`. This avoids JPEG compression artifacts in the padded image.
+
+**`src/utils/scanDiagnostics.ts` — `rightCropLikely` diagnostic field**
+
+Added `rightCropLikely: boolean` to `ScanDiagnostic`. Fires when:
+- `orphanedNameLines >= 3` (many items with no following price) AND
+- `priceLineCount <= 1` (almost no price lines in the entire OCR output) AND
+- `completenessRatio < 0.50` (less than half the total captured)
+
+This distinguishes right-crop (zero prices, many orphaned lines) from glare (some prices, patchy damage) and from Costco/WFM multi-line format (many orphaned lines but completeness = 100%).
+
+**`getScanExplanation` — crop vs glare tips**
+
+The partial case now produces distinct tips:
+- `rightCropLikely`: "Price column appears cut off — make sure the full receipt width is in frame and retake" (action the user can take)
+- else if `orphanedNameLines >= 3 AND completenessRatio < 0.70`: "N item line(s) had no price — glare or shadow may be covering the price column"
+
+#### Priority 2: Review UX for weak scans
+
+**`src/components/ReceiptUploader.tsx` — incomplete warning**
+
+1. **Completeness bar**: a thin horizontal progress bar (amber) shows `completenessRatio` visually when `isIncomplete`.
+2. **"XX% captured" label**: shown alongside the "Receipt looks incomplete" heading.
+3. **Suspicious lines display**: when `suspiciousLines.length > 0`, show up to 3 of the actual dropped lines in a monospace block so the user can see exactly what was rejected. Overflow shows "+N more — see raw text below."
+
+**`src/components/ReceiptUploader.tsx` — mismatch warning**
+
+Added the same completeness bar and percentage label to the mismatch warning when `completenessRatio < 0.90`.
+
+**`src/components/ReceiptUploader.tsx` — scan quality summary bar**
+
+Added a compact one-line quality indicator between the total display and the item list when `mode === 'partial'` but the receipt isn't flagged as incomplete or mismatch. Shows a thin progress bar + "XX% of total captured" label. Keeps the good-scan UI clean while surfacing partial coverage without alarming the user.
+
+#### What the real benchmark numbers mean
+
+Real benchmark at 64/100 is unchanged from Stage 12 (cached OCR; padRight improvement only affects live image OCR, not the pre-cached text). The 4 confirmed failures remain unfixable at the parser/image level:
+
+- receipt_002: blank OCR (physically folded)
+- receipt_003: JFIF too degraded (OCR strength 0.36)  
+- receipt_011: thermal garble
+- receipt_012: Japanese text, wrong Tesseract model
+
+The padRight improvement is measurable only on a `--fresh` OCR run against images where the price column is genuinely clipped at the Tesseract bounding box. None of the 12 dataset receipts exhibit this specific failure mode.
+
+#### Stage 13 benchmark results
+
+| ID | Verdict | Score | Items% | Total% | Delta |
+|----|---------|-------|--------|--------|-------|
+| receipt_001 | PASS | 79 | 86% | 100% | — |
+| receipt_002 | WARN | 45 | 0% | 100% | — |
+| receipt_003 | FAIL | 25 | 0% | 0% | — |
+| receipt_004 | PASS | 77 | 56% | 96% | — |
+| receipt_005 | PASS | 100 | 100% | 100% | — |
+| receipt_006 | PASS | 85 | 100% | 100% | — |
+| receipt_007 | WARN | 58 | 33% | 100% | — |
+| receipt_008 | PASS | 78 | 82% | 99% | — |
+| receipt_009 | PASS | 85 | 100% | 100% | — |
+| receipt_010 | PASS | 78 | 83% | 100% | — |
+| receipt_011 | FAIL | 33 | 20% | 23% | — |
+| receipt_012 | FAIL | 25 | 0% | 0% | — |
+
+**Overall: 64/100 — 7 PASS · 2 WARN · 3 FAIL** (unchanged from Stage 12, cached OCR)
+
+Mock: 100/100 — 6/6 PASS. Robustness: 84% (unchanged). TypeScript: clean.
 
 ---
 
@@ -545,12 +637,12 @@ Two related price-parsing failures under blur/low-contrast:
 
 ## What remains weak
 
-1. **Right-crop** (43% robust) — 5–9 char cuts systematically destroy prices under $10
-   because prices are only 4 chars (`3.98`). This requires image-level preprocessing:
-   receipt-boundary detection or perspective correction before OCR. Parser-level fix would
-   require guessing truncated prices from partial data (high false-positive risk).
-   Stage 12 crops/glare diagnostic now only fires when `completenessRatio < 0.70`, reducing
-   false positives; but lost prices are still not recovered.
+1. **Right-crop** (43% robust, text-level) — 5–9 char cuts from the robustness benchmark
+   systematically destroy prices ($3.98 = 4 chars, always lost). The padRight OCR rescue
+   (Stage 13) fixes the image-level case where Tesseract clips the bounding box at the edge,
+   but the text-level simulation simulates a physically cropped photo where prices are
+   genuinely absent. Parser-level recovery of truncated prices would require guessing from
+   context — too risky. The 43% floor is realistic for this simulation.
 
 2. **Glare** (79% robust) — random patches erase 4–12 chars; when the patch hits the price
    column, the price is gone entirely. The secondary fallback doesn't help because no
@@ -668,6 +760,8 @@ Stage 12 is complete. Real benchmark at 64/100. The merge guard fix recovered 1/
 3. Run `npm run robustness` if changing parsing logic — check glare/right-crop scores.
 4. After each change: `npx tsc --noEmit` + `npm run benchmark`.
 5. Update this file's "What changed in this pass" section and checkpoint fields.
+
+**Stage 13 is complete.** Right-crop rescue now fires before the early-return gate; padRight padding increased to 80px; crop/glare diagnostics now distinguish right-crop from glare; UI shows completeness bar, suspicious lines, and quality summary. No regression in benchmarks.
 
 ---
 
