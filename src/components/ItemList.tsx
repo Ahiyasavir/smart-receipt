@@ -47,7 +47,7 @@ export default function ItemList({ items, onItemChange, editable = false }: Prop
                 <span className="text-xl shrink-0">{meta.emoji}</span>
 
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-800 text-sm truncate">
+                  <p className="font-medium text-gray-800 text-sm break-words">
                     {item.name}
                   </p>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
@@ -62,7 +62,9 @@ export default function ItemList({ items, onItemChange, editable = false }: Prop
                     </span>
                     {isUncertain && (
                       <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                        uncertain — verify
+                        {item.confidence !== undefined
+                          ? `${Math.round(item.confidence * 100)}% confident`
+                          : 'uncertain — verify'}
                       </span>
                     )}
                   </div>

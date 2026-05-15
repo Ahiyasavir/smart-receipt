@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ReceiptItem, Category } from '../types';
 import { CATEGORY_META } from '../utils/categoryClassifier';
+import { UNCERTAIN_THRESHOLD } from '../utils/receiptInterpreter';
 
 interface Props {
   item: ReceiptItem;
@@ -30,10 +31,17 @@ export default function ManualEditModal({ item, onSave, onClose }: Props) {
     >
       <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
         <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">Edit Item</h2>
+          <div className="flex items-center gap-2 min-w-0">
+            <h2 className="text-base font-semibold text-gray-900">Edit Item</h2>
+            {item.confidence !== undefined && item.confidence < UNCERTAIN_THRESHOLD && (
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full shrink-0">
+                {Math.round(item.confidence * 100)}% confident
+              </span>
+            )}
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+            className="text-gray-400 hover:text-gray-600 text-lg leading-none ml-2 shrink-0"
             aria-label="Close"
           >
             ✕
@@ -52,6 +60,11 @@ export default function ManualEditModal({ item, onSave, onClose }: Props) {
               placeholder="Item name"
               autoFocus
             />
+            {item.raw && (
+              <p className="mt-1 text-xs text-gray-400 font-mono bg-gray-50 rounded px-2 py-1 truncate">
+                OCR: {item.raw}
+              </p>
+            )}
           </div>
 
           <div>
@@ -65,6 +78,7 @@ export default function ManualEditModal({ item, onSave, onClose }: Props) {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
+              onFocus={(e) => e.target.select()}
               placeholder="0.00"
             />
           </div>

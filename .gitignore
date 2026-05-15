@@ -1,6 +1,7 @@
 node_modules/
 dist/
 *.local
+.env
 robustness-results.json
 real-benchmark-results.json
 benchmark-results.json

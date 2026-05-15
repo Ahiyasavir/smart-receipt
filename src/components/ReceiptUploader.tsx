@@ -34,7 +34,8 @@ function buildDraft(rawText: string): { receipt: Receipt; result: ParseResult } 
 }
 
 export default function ReceiptUploader({ onSave }: Props) {
-  const fileRef = useRef<HTMLInputElement>(null);
+  const fileRef    = useRef<HTMLInputElement>(null);
+  const cameraRef  = useRef<HTMLInputElement>(null);
 
   const [scanState,      setScanState]      = useState<ScanState>('idle');
   const [progress,       setProgress]       = useState(0);
@@ -140,23 +141,39 @@ export default function ReceiptUploader({ onSave }: Props) {
           <p className="text-amber-600 pt-0.5">Hebrew and crumpled receipts are not supported yet.</p>
         </div>
 
-        {/* Upload zone */}
+        {/* Camera + Gallery buttons */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => cameraRef.current?.click()}
+            className="flex flex-col items-center gap-2 bg-blue-600 text-white rounded-2xl p-5 font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors"
+          >
+            <span className="text-3xl">📷</span>
+            <span className="text-sm">Take Photo</span>
+          </button>
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="flex flex-col items-center gap-2 bg-white border border-gray-200 text-gray-700 rounded-2xl p-5 font-semibold hover:bg-gray-50 active:bg-gray-100 transition-colors shadow-sm"
+          >
+            <span className="text-3xl">🖼️</span>
+            <span className="text-sm">From Gallery</span>
+          </button>
+        </div>
+
+        {/* Drag-and-drop zone (desktop fallback) */}
         <div
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => fileRef.current?.click()}
-          className="border-2 border-dashed border-blue-300 rounded-2xl p-8 text-center cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors select-none"
+          className="border-2 border-dashed border-gray-200 rounded-xl py-4 text-center cursor-pointer hover:bg-gray-50 transition-colors select-none"
         >
-          <div className="text-4xl mb-2">📄</div>
-          <p className="text-gray-700 font-semibold">Upload receipt image</p>
-          <p className="text-xs text-gray-400 mt-1">JPG · PNG · HEIC · drag &amp; drop</p>
+          <p className="text-xs text-gray-400">or drag &amp; drop an image here</p>
         </div>
 
         <button
           onClick={handleMockScan}
-          className="w-full text-blue-600 text-sm text-center py-2 hover:underline"
+          className="w-full border border-blue-300 text-blue-600 text-sm font-medium py-2.5 rounded-xl hover:bg-blue-50 transition-colors"
         >
-          Use sample receipt (for testing)
+          Try with sample receipt
         </button>
 
         {scanState === 'error' && (
@@ -165,6 +182,16 @@ export default function ReceiptUploader({ onSave }: Props) {
           </div>
         )}
 
+        {/* Camera input — opens device camera directly */}
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        {/* Gallery input — opens photo library */}
         <input
           ref={fileRef}
           type="file"
@@ -264,6 +291,19 @@ export default function ReceiptUploader({ onSave }: Props) {
         />
       )}
 
+      {/* Scan quality badge */}
+      <div className="flex justify-center">
+        {mode === 'good' ? (
+          <span className="text-xs font-semibold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full">
+            ✓ Good scan
+          </span>
+        ) : (
+          <span className="text-xs font-semibold bg-amber-100 text-amber-700 px-3 py-1 rounded-full">
+            ⚠ Partial scan — review items below
+          </span>
+        )}
+      </div>
+
       {/* Incomplete warning — significant amount unaccounted for + suspicious lines */}
       {parseResult.isIncomplete && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 space-y-2">
@@ -319,6 +359,25 @@ export default function ReceiptUploader({ onSave }: Props) {
         </p>
         <p className="text-3xl font-bold">${draft.total.toFixed(2)}</p>
         <p className="text-sm opacity-60 mt-0.5">{draft.storeName}</p>
+        {diagnostic.discountSum > 0 && (
+          <p className="text-xs opacity-70 mt-1">
+            Savings: −${diagnostic.discountSum.toFixed(2)} applied
+          </p>
+        )}
+        {diagnostic.completenessRatio < 0.90 && (
+          <div className="mt-3 pt-3 border-t border-white/20">
+            <div className="flex justify-between text-xs opacity-80 mb-1">
+              <span>Items captured</span>
+              <span>{Math.round(diagnostic.completenessRatio * 100)}%</span>
+            </div>
+            <div className="w-full bg-white/20 rounded-full h-1.5">
+              <div
+                className="bg-white h-1.5 rounded-full transition-all"
+                style={{ width: `${Math.round(diagnostic.completenessRatio * 100)}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Item list */}

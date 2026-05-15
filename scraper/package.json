@@ -1,0 +1,13 @@
+{
+  "name": "smartreceipt-bank-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Automatic bank sync for SmartReceipt using israeli-bank-scrapers",
+  "scripts": {
+    "sync": "node sync.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.47.0",
+    "israeli-bank-scrapers": "^4.4.0"
+  }
+}

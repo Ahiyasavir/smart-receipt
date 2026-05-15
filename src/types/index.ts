@@ -14,7 +14,10 @@ export interface Receipt {
   rawText: string;    // full OCR output
   items: ReceiptItem[];
   total: number;
-  imageDataUrl?: string; // optional; not persisted to localStorage
+  notes?: string;
+  imageDataUrl?: string; // not persisted to DB
+  source?: 'scan' | 'bank-sync' | 'bank-import';
+  externalId?: string;
 }
 
 export type Category =
@@ -37,3 +40,17 @@ export interface CategorySummary {
 }
 
 export type AppTab = 'scan' | 'dashboard' | 'history';
+
+export type BudgetPeriod = 'weekly' | 'monthly';
+export type BudgetSettings = Partial<Record<Category, number>>;
+export interface UserBudgets {
+  weekly: BudgetSettings;
+  monthly: BudgetSettings;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  emoji: string;
+  color: string; // hex accent color
+}
