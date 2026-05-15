@@ -6,6 +6,7 @@ import { classifyFailureMode, getScanExplanation, ScanDiagnostic } from '../util
 import { MOCK_RECEIPT_TEXT } from '../utils/mockReceipt';
 import ItemList from './ItemList';
 import RawOCRView from './RawOCRView';
+import ParserDebugPanel from './ParserDebugPanel';
 
 // ─── MVP scope ───────────────────────────────────────────────────────────────
 // Supported: clear printed English supermarket receipts, flat and well-lit.
@@ -234,6 +235,10 @@ export default function ReceiptUploader({ onSave }: Props) {
         {/* Raw OCR text — expanded so the user can see what was actually extracted */}
         <RawOCRView rawText={rawText} onTextChange={handleRawTextChange} startExpanded />
 
+        {parseResult?.classifiedLines && parseResult.classifiedLines.length > 0 && (
+          <ParserDebugPanel lines={parseResult.classifiedLines} />
+        )}
+
         <div className="flex gap-2">
           <button
             onClick={reset}
@@ -321,6 +326,10 @@ export default function ReceiptUploader({ onSave }: Props) {
 
       {/* Raw OCR for manual correction */}
       <RawOCRView rawText={rawText} onTextChange={handleRawTextChange} />
+
+      {parseResult?.classifiedLines && parseResult.classifiedLines.length > 0 && (
+        <ParserDebugPanel lines={parseResult.classifiedLines} />
+      )}
 
       <div className="flex gap-2">
         <button

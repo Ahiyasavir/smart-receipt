@@ -166,6 +166,7 @@ export interface InterpretedReceipt {
   suspiciousLines: string[]; // near-miss lines: had price but couldn't form a valid item
   discountSum: number;     // sum of explicit discount/coupon line amounts
   discountLineCount: number; // number of discount lines detected
+  classifiedLines: ClassifiedLine[]; // full per-line classification for debug panel
 }
 
 // ─── Main interpreter ─────────────────────────────────────────────────────────
@@ -247,12 +248,39 @@ export function interpretReceipt(rawText: string): InterpretedReceipt {
       }
 
       // Case B: product name on this line, next line has an embedded price (item format).
-      // This happens when the continuation line has a parseable fragment AND a price,
-      // e.g., "Applegate Turkey\n  Breast Deli 7oz   6.49". Use this line's cleaner
-      // product name and take the price from the next line.
+      // e.g., "Applegate Turkey\n  Breast Deli 7oz   6.49"
       if (next.lineClass === 'item' && next.price !== null) {
+        // Do NOT merge when the name_only line came from a barcode-prefixed standalone
+        // item whose price OCR failed. Merging would steal the next item's price and
+        // produce a wrong item (e.g. "KS Wheat Bread" priced at SkinnyPop's $5.39).
+        // Let it fall through as an orphan; the next iteration handles the item line.
+        if (cl.hadBarcodePrefix) {
+          i++;
+          continue;
+        }
+        // Do NOT merge when the immediately preceding classified line is also name_only.
+        // That pattern indicates a run of standalone items whose prices OCR failed to
+        // extract — NOT a two-line product descriptor. Merging would steal the next
+        // item's price slot and produce a wrong combined entry.
+        // Two-line product formats are always preceded by a consumed pair (price_only or
+        // item) or by noise — never by another orphaned name_only.
+        const prevCl = i > 0 ? classified[i - 1] : null;
+        if (prevCl && prevCl.lineClass === 'name_only') {
+          i++;
+          continue;
+        }
+
+        // When merging, prefer whichever name has more letter characters.
+        // Barcode-stripped item names (e.g. "CRETORS MIX") are often cleaner than
+        // the garbled OCR noise lines that precede them (e.g. "ever 11 IN 5").
+        const clLetters   = (cl.nameCandidate   ?? '').replace(/[^a-zA-Z]/g, '').length;
+        const nextLetters = (next.nameCandidate  ?? '').replace(/[^a-zA-Z]/g, '').length;
+        const bestName = (next.nameCandidate && nextLetters > clLetters)
+          ? next.nameCandidate
+          : cl.nameCandidate;
+
         candidates.push({
-          nameCandidate: cl.nameCandidate,
+          nameCandidate: bestName,
           price: next.price,
           raw: `${cl.raw} | ${next.raw}`,
           hasTrailingArtifact: cl.hasTrailingArtifact,
@@ -336,6 +364,6 @@ export function interpretReceipt(rawText: string): InterpretedReceipt {
   return {
     items, detectedTotal, itemSum, total, merchant, storeName,
     mismatch, isIncomplete, suspiciousLines,
-    discountSum, discountLineCount,
+    discountSum, discountLineCount, classifiedLines: classified,
   };
 }

@@ -6,50 +6,58 @@
     "total": 58.23,
     "itemsCount": 7,
     "items": [
-      { "name": "Cretors Mix",                        "price": 5.89  },
-      { "name": "Kirkland Signature Wheat Bread",     "price": 3.99  },
-      { "name": "SkinnyPop 14",                       "price": 5.39  },
-      { "name": "Pork Eggroll",                       "price": 7.59  },
-      { "name": "Kings Bowl",                         "price": 10.99 },
-      { "name": "Kirkland Signature Trail Mix",       "price": 12.89 },
-      { "name": "Yakisoba",                           "price": 11.49 }
+      { "name": "Cretors Mix",    "price": 5.89  },
+      { "name": "KS Wheat Bread", "price": 3.99  },
+      { "name": "SkinnyPop 14",   "price": 5.39  },
+      { "name": "Pork Eggroll",   "price": 7.59  },
+      { "name": "Kings Bowl",     "price": 10.99 },
+      { "name": "KS Trail Mix",   "price": 12.89 },
+      { "name": "Yakisoba",       "price": 11.49 }
     ],
-    "notes": "Merchant identified by address 'Gig Harbor, WA'. KS expanded to Kirkland Signature."
+    "notes": "Merchant identified by address 'Gig Harbor, WA'. KS = Kirkland Signature abbreviation."
   },
   {
     "id": "receipt_002",
     "image": "receipt_002.png",
     "merchant": "Costco Wholesale",
     "total": 0,
-    "itemsCount": 0,
-    "items": [],
-    "notes": "UNVERIFIABLE — receipt is folded/cut at bottom. Total and item count unknown. OCR output captured for diagnostic purposes only; no scoring applied."
+    "itemsCount": 9,
+    "items": [
+      { "name": "KS Cal Pist",       "price": 26.99 },
+      { "name": "Prolive Probiotic",  "price": 8.99  },
+      { "name": "Org Rooibos Tea",   "price": 12.99 },
+      { "name": "Org Rooibos Tea",   "price": 3.00  },
+      { "name": "Double Smoked Ham", "price": 45.89 },
+      { "name": "TPD SP 24x500ml",   "price": 5.01  }
+    ],
+    "notes": "Folded receipt — total unknown (sentinel 0). 9 items estimated visible on the fold; 6 have legible names. 3 items with unknown names excluded from GT scoring. OCR produces 0 chars — image is physically unreadable."
   },
   {
     "id": "receipt_003",
     "image": "receipt_003.jfif",
     "merchant": "Costco Wholesale",
     "total": 97.18,
-    "itemsCount": 16,
+    "itemsCount": 17,
     "items": [
-      { "name": "Active Yeast",                        "price": 3.95  },
-      { "name": "Kirkland Signature Pepper Grinder",   "price": 3.99  },
-      { "name": "Kirkland Signature Med Salt",         "price": 3.49  },
-      { "name": "Kirkland Signature Vanilla",          "price": 5.99  },
-      { "name": "MRM Antipasto",                       "price": 4.97  },
-      { "name": "Greek Yogurt",                        "price": 6.99  },
-      { "name": "Bananas",                             "price": 1.32  },
-      { "name": "Omega 3 Eggs",                        "price": 5.49  },
-      { "name": "Strawberry Waffles",                  "price": 10.99 },
-      { "name": "Neprica",                             "price": 7.99  },
-      { "name": "Organic Butter",                      "price": 6.89  },
-      { "name": "Blue Cheese",                         "price": 7.29  },
-      { "name": "Olives",                              "price": 6.49  },
-      { "name": "Firm Tofu",                           "price": 2.15  },
-      { "name": "Small Red Potatoes",                  "price": 5.79  },
-      { "name": "Avocados",                            "price": 5.29  }
+      { "name": "Active Yeast",        "price": 3.95  },
+      { "name": "KS Pepper Grinder",   "price": 3.99  },
+      { "name": "KS Med Salt",         "price": 3.49  },
+      { "name": "KS Vanilla",          "price": 5.99  },
+      { "name": "MRM Antipasto",       "price": 4.97  },
+      { "name": "Greek Yogurt",        "price": 6.99  },
+      { "name": "Bananas",             "price": 1.32  },
+      { "name": "Omega-3 Eggs",        "price": 5.49  },
+      { "name": "Strawberry Waffles",  "price": 10.99 },
+      { "name": "Neprica",             "price": 7.99  },
+      { "name": "Organic Butter",      "price": 6.89  },
+      { "name": "Blue Cheese",         "price": 7.29  },
+      { "name": "Olives",              "price": 6.49  },
+      { "name": "Firm Tofu",           "price": 2.15  },
+      { "name": "Small Red Potatoes",  "price": 5.79  },
+      { "name": "Avocados",            "price": 5.29  },
+      { "name": "Mozzlog",             "price": 7.49  }
     ],
-    "notes": "High clarity. Abbreviations expanded. GT items_count=16 (GT source notes 17; one line likely a sub-total row)."
+    "notes": "JFIF image — OCR strength 0.36, parser receives no usable price lines. GT updated to 17 items including Mozzlog."
   },
   {
     "id": "receipt_004",
@@ -58,17 +66,17 @@
     "total": 89.13,
     "itemsCount": 9,
     "items": [
-      { "name": "FF BS Breast",                        "price": 23.99 },
-      { "name": "Kirkland Signature Diced Tomatoes",   "price": 6.49  },
-      { "name": "Jack's Organic Salsa",                "price": 2.97  },
-      { "name": "18ct Eggs",                           "price": 12.87 },
-      { "name": "Grape Tomato",                        "price": 6.29  },
-      { "name": "Eco Half Pan",                        "price": 6.49  },
-      { "name": "Ground Turkey",                       "price": 18.47 },
-      { "name": "Chopped Onion",                       "price": 3.59  },
-      { "name": "Monterey Jack 2#",                    "price": 4.45  }
+      { "name": "FF BS Breast",          "price": 23.99 },
+      { "name": "KS Diced Tomatoes",     "price": 6.49  },
+      { "name": "Jack's Organic Salsa",  "price": 2.97  },
+      { "name": "18ct Eggs",             "price": 12.87 },
+      { "name": "Grape Tomato",          "price": 6.29  },
+      { "name": "Eco Half Pan",          "price": 6.49  },
+      { "name": "Ground Turkey",         "price": 18.47 },
+      { "name": "Chopped Onion",         "price": 3.59  },
+      { "name": "Monterey Jack 2#",      "price": 4.45  }
     ],
-    "notes": "Quantities handled as final line prices."
+    "notes": "Costco barcode-prefixed items. Many prices garbled by OCR noise. 3 items systematically missed (no price in OCR output for those lines)."
   },
   {
     "id": "receipt_005",
@@ -77,10 +85,10 @@
     "total": 18.49,
     "itemsCount": 2,
     "items": [
-      { "name": "Rotisserie Chicken Meal",             "price": 12.99 },
-      { "name": "Mac and Cheese Side",                 "price": 3.99  }
+      { "name": "Rotisserie Chicken Meal", "price": 12.99 },
+      { "name": "Individual Side",          "price": 3.99  }
     ],
-    "notes": "Digital layout, high accuracy expected."
+    "notes": "Digital receipt layout. High accuracy expected. Side dish label updated to 'Individual Side'."
   },
   {
     "id": "receipt_006",
@@ -89,9 +97,9 @@
     "total": 21.84,
     "itemsCount": 1,
     "items": [
-      { "name": "Pizza BYO",                           "price": 19.99 }
+      { "name": "Pizza BYO Large", "price": 19.99 }
     ],
-    "notes": "Clean vertical alignment."
+    "notes": "Clean vertical alignment. Single item."
   },
   {
     "id": "receipt_007",
@@ -100,11 +108,11 @@
     "total": 21.40,
     "itemsCount": 3,
     "items": [
-      { "name": "Sust XLarge Condoms 10ct",            "price": 12.79 },
-      { "name": "Raaka OG Mini Choco Bar",             "price": 0.99  },
-      { "name": "Pom Mums 7 Stem",                     "price": 5.99  }
+      { "name": "Sust XLarge Condoms 10ct", "price": 12.79 },
+      { "name": "Raaka OG Mini Choco Bar",  "price": 0.99  },
+      { "name": "Pom Mums 7 Stem",          "price": 5.99  }
     ],
-    "notes": "Mixed categories: health, snacks, produce."
+    "notes": "Whole Foods thermal. All 3 items garbled in OCR — names fail confidence filter, prices partially visible."
   },
   {
     "id": "receipt_008",
@@ -112,8 +120,26 @@
     "merchant": "Whole Foods Market",
     "total": 100.00,
     "itemsCount": 17,
-    "items": [],
-    "notes": "High item count. GT items list not yet verified at item level — total and count only. Check orphanedNameLines diagnostic for blurred/cut sections."
+    "items": [
+      { "name": "365WFM OG BERRY CRSP PLLW",  "price": 4.99  },
+      { "name": "365WFM OG HZLNUT CO PLLW",   "price": 4.99  },
+      { "name": "KETTL POTATO CHIP",           "price": 3.49  },
+      { "name": "KETTL HBNERO LIME CHIPS",     "price": 3.49  },
+      { "name": "365WFM OG REDUCED FAT MK",   "price": 3.69  },
+      { "name": "365WFM ORANGE NO PULP",       "price": 4.49  },
+      { "name": "365WFM OG VDK PASTA SC",      "price": 3.49  },
+      { "name": "BF CHK STEW MEAT PSTR S4",   "price": 15.90 },
+      { "name": "365WFM CHED JACK SHRED",      "price": 6.49  },
+      { "name": "365WFM OG HEAVY CREAM",       "price": 3.99  },
+      { "name": "SALMON FILLET",               "price": 10.19 },
+      { "name": "KSGGIO ORIGINALE CUBES",      "price": 8.09  },
+      { "name": "WFM OG CHICKEN SAUSAGE",      "price": 6.99  },
+      { "name": "ENGLISH CUCUMBER",            "price": 2.29  },
+      { "name": "365WFM OG WHT SLCD MSHRM",   "price": 3.99  },
+      { "name": "365WFM ALMOND TORTILLAS",     "price": 6.99  },
+      { "name": "365WFM CASSAVA TORTILLAS",    "price": 6.99  }
+    ],
+    "notes": "Full item-level GT now verified. WFM 365 brand prefix format. Some prices are per-lb calculations from OCR."
   },
   {
     "id": "receipt_009",
@@ -121,8 +147,12 @@
     "merchant": "Holiday Market",
     "total": 14.04,
     "itemsCount": 3,
-    "items": [],
-    "notes": "Small receipt. GT items list not yet verified at item level."
+    "items": [
+      { "name": "Grapes Green Organic", "price": 9.70 },
+      { "name": "Naked Juice Mighty Mango", "price": 4.29 },
+      { "name": "Prod Deposit",         "price": 0.05 }
+    ],
+    "notes": "Small receipt. Grapes sold by weight ($9.70 = 2.43 lb × $3.99/lb)."
   },
   {
     "id": "receipt_010",
@@ -130,8 +160,32 @@
     "merchant": "Tesco",
     "total": 842.89,
     "itemsCount": 23,
-    "items": [],
-    "notes": "International receipt — likely CZK (Czech Koruna). Large item count. Total format may trigger parser issues with non-USD amounts. GT items list not verified at item level."
+    "items": [
+      { "name": "DOZY RAINBOW HRA 6",      "price": 99.90 },
+      { "name": "NAKUPNI TASKA",           "price": 3.80  },
+      { "name": "TS KUKUR.SL.",            "price": 19.90 },
+      { "name": "PUR CAR 700ml",           "price": 34.90 },
+      { "name": "SLEPICI BUJON 3L 60G",   "price": 14.90 },
+      { "name": "PASTA CESNEK 200g",       "price": 26.90 },
+      { "name": "BROKOLICE 500g ks",       "price": 22.90 },
+      { "name": "TESCO FINEST MANCHEG",    "price": 69.90 },
+      { "name": "TS HALLOUMI 250g",        "price": 99.90 },
+      { "name": "TS KUR.P.RIZ.B.K.K.",    "price": 48.69 },
+      { "name": "7D CHOCO KAKAO 60g",      "price": 14.90 },
+      { "name": "BOCHNIK KV.CVR. 355g",   "price": 8.42  },
+      { "name": "TF SCHWAR.SUNKA 100g",    "price": 39.90 },
+      { "name": "DRO LIVANECKY 250G",      "price": 27.90 },
+      { "name": "BAGETA RUSTIKAL. 120g",   "price": 19.80 },
+      { "name": "TVN JOGURT 400g",         "price": 16.90 },
+      { "name": "BANAN KG 1",              "price": 21.98 },
+      { "name": "TS COK.K.TM. 100g",      "price": 39.90 },
+      { "name": "TS PARB.RYZE 400g",       "price": 15.90 },
+      { "name": "OKURKA HADOVKA ks",       "price": 12.90 },
+      { "name": "TS OMACKA BUTTER CHI",    "price": 54.90 },
+      { "name": "TESCO FINEST CHABICH",    "price": 99.90 },
+      { "name": "ABC SOJOVA OM 135ml",     "price": 27.90 }
+    ],
+    "notes": "Czech CZK receipt. Comma-decimal normalization applied. Full item-level GT now verified."
   },
   {
     "id": "receipt_011",
@@ -139,8 +193,14 @@
     "merchant": "Trade Fair Supermarkets",
     "total": 6.83,
     "itemsCount": 7,
-    "items": [],
-    "notes": "Small total, 7 items. GT items list not yet verified at item level."
+    "items": [
+      { "name": "Campbell Chick Ndl",  "price": 0.99 },
+      { "name": "Elmhurst Half Half",  "price": 0.89 },
+      { "name": "Jones Liverwurst C",  "price": 1.50 },
+      { "name": "Produce",             "price": 2.85 },
+      { "name": "Bakery",              "price": 0.60 }
+    ],
+    "notes": "Thermal receipt — 7 items total, 5 have legible names in GT. 2 items not identifiable from OCR garble. Total 6.83 confirmed."
   },
   {
     "id": "receipt_012",
@@ -148,7 +208,15 @@
     "merchant": "SHINSEN FISH MARKET",
     "total": 11957.00,
     "itemsCount": 11,
-    "items": [],
-    "notes": "International receipt — likely JPY (Japanese Yen). Very large total in local currency. Parser may fail to detect integer-only prices. GT items list not verified at item level."
+    "items": [
+      { "name": "TUNA SET 3",              "price": 500.00  },
+      { "name": "Live Taraba Whole",       "price": 9447.75 },
+      { "name": "Assort Sashimi 5",        "price": 380.00  },
+      { "name": "Crystal Water",           "price": 60.00   },
+      { "name": "Fried Rice With Crab",    "price": 280.00  },
+      { "name": "Asahi Draft Beer",        "price": 220.00  },
+      { "name": "Ice Glass",               "price": 20.00   }
+    ],
+    "notes": "Japanese receipt (JPY). English Tesseract produces 18 chars. 7 of 11 items identified by manual inspection. Parser cannot read without jpn.traineddata."
   }
 ]

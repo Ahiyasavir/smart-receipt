@@ -1,14 +1,78 @@
 # Receipt Pipeline State — Checkpoint
 
-**Date:** 2026-05-14
+**Date:** 2026-05-15
 **Build status:** ✅ Clean (`tsc --noEmit` passes; benchmark passes)
-**Benchmark:** 100/100 — 6/6 PASS (maintained through Stage 10)
-**Robustness:** 84% overall (unchanged; no image-level changes)
+**Benchmark:** 100/100 — 6/6 PASS (maintained through Stage 12)
+**Robustness:** 84% overall · right-crop 43% · glare 79% · blur 99% · low-contrast 88%
 **Real benchmark (Stage 10):** 72/100 — 7 PASS · 3 WARN · 1 FAIL · 1 SKIP (12 receipts)
+**Real benchmark (Stage 11):** 63/100 — 7 PASS · 2 WARN · 3 FAIL (12 receipts, GT fully item-level)
+**Real benchmark (Stage 12):** 64/100 — 7 PASS · 2 WARN · 3 FAIL (12 receipts)
+**Audit:** 2026-05-15 — see audit section below
 
 ---
 
 ## What changed in this pass
+
+### Stage 12 — Audit, merge guard, and diagnostic hardening (2026-05-15)
+
+#### Audit findings (Stage 1)
+
+Three failure modes identified, ranked by engineering ROI:
+
+**#1 — Case B name_only→item merge consuming valid standalone items (parser-level)**
+When a garbled item line has no price (becomes `name_only`), and the immediately following line is a real standalone item (`item` class), the merge fires and assigns the garbled name to the real item's price slot. In receipt_007: `BAA" GG WENT CHOCO BAR HR` (garbled "Raaka" line, no price) was merging with `POM MUMS 7 STEM $9.99 1` — consuming it and preventing any GT match. Recall = 0% on that receipt.
+
+**#2 — OrphanedNameLines diagnostic fires on multi-line-format receipts (diagnostic-level)**
+Threshold `>= 2` fired for Costco/WFM formats even when `completenessRatio = 100%` and all items were found correctly. Affected receipts 004, 006, 008, 010 with false Crop/Glare tips.
+
+**#3 — completenessRatio = 100% on complete parse failures (diagnostic-level)**
+When both `result.total = 0` and `result.itemSum = 0`, the formula `adjustedItemSum / result.total` was short-circuited to return 1 (formula guard), producing a false "fully complete" signal on receipts 002, 003, 012.
+
+#### Changes implemented (Stage 2)
+
+**`src/utils/receiptInterpreter.ts` — Case B merge "prev-was-name_only" guard**
+
+Before executing a Case B merge (name_only + item), the interpreter now checks whether `classified[i-1]` is also `name_only`. If so, the merge is skipped and the item line is emitted as a standalone item.
+
+Rationale: in legitimate two-line product formats (e.g. Whole Foods), the name_only always follows a consumed price_only or item from the previous product. Only in "run of failed prices" scenarios does a name_only line appear immediately before another name_only→item sequence.
+
+Tested: does NOT break the `twolines-receipt` mock fixture (5/5 items, 100/100). The fixture's structure is `price_only→name_only→item`, not `name_only→name_only→item`.
+
+**`src/utils/scanDiagnostics.ts` — Two diagnostic fixes**
+
+1. `completenessRatio`: when both `result.total === 0` AND `result.itemSum === 0`, ratio is now set to 0 (was 1). Receipts 002, 003, 012 now correctly report `completeness=0%`.
+
+2. `getScanExplanation` crop/glare tip: threshold changed from `orphanedNameLines >= 2` to `orphanedNameLines >= 3 AND completenessRatio < 0.70`. Eliminates false crop/glare tips on correctly-parsed multi-line format receipts.
+
+#### Stage 12 results
+
+| ID | Verdict | Score | Items% | Total% | Delta |
+|----|---------|-------|--------|--------|-------|
+| receipt_001 | PASS | 79 | 86% | 100% | — |
+| receipt_002 | WARN | 45 | 0% | 100% | — |
+| receipt_003 | FAIL | 25 | 0% | 0% | — |
+| receipt_004 | PASS | 77 | 56% | 96% | — |
+| receipt_005 | PASS | 100 | 100% | 100% | — |
+| receipt_006 | PASS | 85 | 100% | 100% | — |
+| receipt_007 | WARN | **58** | **33%** | 100% | **▲+13** (Pom Mums now matched) |
+| receipt_008 | PASS | 78 | 82% | 99% | — |
+| receipt_009 | PASS | 85 | 100% | 100% | — |
+| receipt_010 | PASS | 78 | 83% | 100% | — |
+| receipt_011 | FAIL | 33 | 20% | 23% | — |
+| receipt_012 | FAIL | 25 | 0% | 0% | — |
+
+**Overall: 64/100 — 7 PASS · 2 WARN · 3 FAIL** (was 63/100)
+
+Mock benchmark: 100/100 — 6/6 PASS (no regressions).  
+Robustness: 84% overall (unchanged — merge guard does not affect distortion scenarios).
+
+#### Confirmed unfiixable at parser level (current session)
+- receipt_002: blank OCR (physically folded image)
+- receipt_003: JFIF too degraded for Tesseract (OCR strength 0.36, 0 price lines)
+- receipt_011: thermal garble — total not in OCR, 4/5 item prices absent
+- receipt_012: Japanese text requires `jpn.traineddata`
+
+---
 
 ### Stage 10 — International receipt support + real-image sanity gate
 
@@ -94,6 +158,52 @@ Pass 1 now: when a `total`-class line has `price === null` and the immediately p
 - **receipt_002 (SKIP):** Folded at the bottom. Tesseract returned 0 characters. Correctly SKIPped.
 - **receipt_012 (WARN 65):** Japanese receipt needs `jpn.traineddata` Tesseract model; English-only model produces 18 chars total. Not fixable at the parser level.
 - **orphanedNameLines false positives:** Costco/Whole Foods multi-line format produces 12–17 orphaned name lines on correctly-parsed PASS receipts. This is a diagnostic false positive for multi-line receipt formats, not actual crop/glare. The signal should only be acted on when `completenessRatio < 0.70` AND `orphanedNameLines ≥ 3`.
+
+---
+
+### Stage 11 — Short-name heuristic + repository hygiene (2026-05-15)
+
+#### `src/utils/lineClassifier.ts` — 3-char all-uppercase name acceptance
+
+`classifyLine()` now accepts a name candidate that is exactly 3 characters and all-uppercase (e.g. `YAK`, `TEA`, `COK`) when a price is present on the same line. This recovers items that Costco barcode stripping leaves as 3-char abbreviations.
+
+Guard: `TAX`, `VAT`, `GST`, `HST` etc. are caught by `TAX_RE` earlier in the classifier and never reach the name acceptance check.
+
+```typescript
+const is3CharUpperWithPrice =
+  price !== null &&
+  rawNameCandidate !== null &&
+  /^[A-Z]{3}$/.test(rawNameCandidate.trim());
+```
+
+#### `.gitignore` — Added large artifact exclusions
+
+Added `*.traineddata` and `benchmark-results.json`. Uncached `eng.traineddata` (~15 MB) and `benchmark-results.json` from git index with `git rm --cached`.
+
+#### Stage 11 results (2026-05-15)
+
+| ID | Verdict | Score | Items% | Total% | Delta |
+|----|---------|-------|--------|--------|-------|
+| receipt_001 | PASS | **79** | 86% | 100% | **▲+6** (Yakisoba recovered as "Yak") |
+| receipt_002 | WARN | 45 | 0% | 100% | — |
+| receipt_003 | FAIL | 25 | 0% | 0% | — |
+| receipt_004 | PASS | 77 | 56% | 96% | — |
+| receipt_005 | PASS | 100 | 100% | 100% | — |
+| receipt_006 | PASS | 85 | 100% | 100% | — |
+| receipt_007 | WARN | 45 | 0% | 100% | — |
+| receipt_008 | PASS | 78 | 82% | 99% | — |
+| receipt_009 | PASS | 85 | 100% | 100% | — |
+| receipt_010 | PASS | 78 | 83% | 100% | — |
+| receipt_011 | FAIL | 33 | 20% | 23% | — |
+| receipt_012 | FAIL | 25 | 0% | 0% | — |
+
+**Overall: 63/100 — 7 PASS · 2 WARN · 3 FAIL**
+
+receipt_001 now finds 6/7 items (KS Wheat Bread still missing — barcode OCR failure, no price in output).
+
+#### Pending (Stage 11 Task 2 — not implemented)
+
+Right-edge padding retry: browser-only OCR rescue pass when `orphanedNameLines ≥ 3 AND completenessRatio < 0.70`. Canvas extended +50px right (white padding). Would not improve cached benchmark without `--fresh`. Deferred until browser testing session.
 
 ---
 
@@ -419,6 +529,7 @@ Two related price-parsing failures under blur/low-contrast:
 | After Stage 7 | 100/100 | No regressions; blurry-receipt gains 2 items (7→9) |
 | After Stage 9 | 100/100 | No regressions; discount handling + diagnostics added |
 | After Stage 10 | 100/100 | No regressions; international receipt support added |
+| After Stage 12 | 100/100 | No regressions; merge guard + diagnostic fixes |
 
 ## Robustness history
 
@@ -428,6 +539,7 @@ Two related price-parsing failures under blur/low-contrast:
 | After Stage 7 | 84% | 99% | 88% | 79% | 94% | 43% | 100% |
 | After Stage 9 | 84% | 99% | 88% | 79% | 94% | 43% | 100% |
 | After Stage 10 | 84% | 99% | 88% | 79% | 94% | 43% | 100% |
+| After Stage 12 | 84% | 99% | 88% | 79% | 94% | 43% | 100% |
 
 ---
 
@@ -437,26 +549,34 @@ Two related price-parsing failures under blur/low-contrast:
    because prices are only 4 chars (`3.98`). This requires image-level preprocessing:
    receipt-boundary detection or perspective correction before OCR. Parser-level fix would
    require guessing truncated prices from partial data (high false-positive risk).
-   Stage 9 now *detects* this via `orphanedNameLines` and surfaces it to the user, but does
-   not recover the lost prices.
+   Stage 12 crops/glare diagnostic now only fires when `completenessRatio < 0.70`, reducing
+   false positives; but lost prices are still not recovered.
 
 2. **Glare** (79% robust) — random patches erase 4–12 chars; when the patch hits the price
    column, the price is gone entirely. The secondary fallback doesn't help because no
    partial digits remain. Improvement would require OCR-level inpainting or additional CLAHE
    passes targeting the glare region.
-   Stage 9 now *detects* this via `orphanedNameLines` (same signal as crop) and surfaces it.
 
-3. **Tilt and perspective distortion** — rotation (90°/270°) now handled. True deskewing
-   (slight angles, 5–20°) still requires perspective detection; the canvas API alone cannot
-   correct arbitrary homographic distortion without knowing receipt corners.
+3. **Thermal garble** (receipts 007, 011) — thermal receipts with blotchy ink produce lines
+   where prices are missing entirely or reduced to a single digit with no decimal. The
+   parser has no way to recover a price from `9 F` without knowing the original format.
+   OCR-level preprocessing targeted at thermal receipt contrast would help.
 
-4. **Discount coverage** ✅ *Partially addressed in Stage 9* — `DISCOUNT_LINE_RE` covers seven
-   common patterns. Mismatch calculation now accounts for detected discounts. Remaining gap:
-   bare coupon lines (e.g., `COUPON -0.50` without a label keyword), percentage-off discounts
-   (e.g., `10% MEMBER DISCOUNT`), and multi-line discount entries.
+4. **Case B merge edge case** — the "prev-was-name_only" guard now correctly blocks the
+   bad merge in receipt_007. However, if a genuine 2-line receipt format has a garbled
+   line immediately before the product-descriptor+price line, the guard would incorrectly
+   block the merge. This edge case hasn't appeared in the current 12-receipt dataset.
 
-5. **Category confidence** — items with 0 keyword hits fall back to the merchant default.
+5. **Discount coverage** ✅ *Partially addressed in Stage 9* — `DISCOUNT_LINE_RE` covers seven
+   common patterns. Remaining gap: bare coupon lines (`COUPON -0.50` without a label keyword),
+   percentage-off discounts (`10% MEMBER DISCOUNT`), and multi-line discount entries.
+
+6. **Category confidence** — items with 0 keyword hits fall back to the merchant default.
    A receipts-specific embedding classifier would improve accuracy for unusual product names.
+
+7. **Duplicate ocrStrength** — the `ocrStrength` function exists in both `real-benchmark.ts`
+   (local) and `src/utils/ocr.ts` (as `ocrResultStrength`). They use slightly different
+   weights. Low risk but clean-up would improve maintainability.
 
 ---
 
@@ -476,10 +596,11 @@ Two related price-parsing failures under blur/low-contrast:
 | `src/utils/scanDiagnostics.ts` | Created in Stage 8; Stage 9: orphanedNameLines, discountSum, discountLineCount, completenessRatio + context-aware partial explanation |
 | `src/components/ReceiptUploader.tsx` | Stage 8: replaced OcrQuality with ScanDiagnostic; mode-specific error UI |
 | `src/utils/lineClassifier.ts` | Stage 10: `CELKEM`/`GESAMT`/`SUMME` added to `TOTAL_RE`; `ZLEVNENO` added to `NOISE_RE` |
-| `src/utils/receiptInterpreter.ts` | Stage 10: preceding `price_only` fallback for split total lines |
+| `src/utils/receiptInterpreter.ts` | Stage 10: preceding `price_only` fallback for split total lines; Stage 12: Case B merge "prev-was-name_only" guard |
 | `images.def` | Created in Stage 10 — 12-entry image manifest |
 | `eval/ground-truth.json` | Stage 10: extended to 12 entries (001-012); count-only GT for 008-012 |
 | `scripts/real-benchmark.ts` | Created in Stage 10 — real-image OCR benchmark with discrepancy table |
+| `src/utils/scanDiagnostics.ts` | Stage 12: completenessRatio=0 for complete failures; getScanExplanation crop/glare threshold tightened to ≥3 AND completenessRatio < 0.70 |
 | `RECEIPT_PIPELINE_STATE.md` | This file |
 
 ---
@@ -488,16 +609,13 @@ Two related price-parsing failures under blur/low-contrast:
 
 Pick up from here in the next session. Ordered by expected impact.
 
-Stage 10 is complete. The real-image sanity gate is live with 12 receipts (72/100 overall).
-International CZK support was the main parser improvement; remaining failures are image-quality issues, not parser issues.
+Stage 12 is complete. Real benchmark at 64/100. The merge guard fix recovered 1/3 items on receipt_007; diagnostics are now more accurate on complete failures and multi-line format receipts. Remaining failures are OCR/image-quality issues not fixable at the parser level.
 
 ### High priority
 
-**A. Refine orphanedNameLines signal** (`src/utils/scanDiagnostics.ts`)
-- The current `orphanedNameLines ≥ 3` threshold fires on Costco/Whole Foods multi-line format
-  even when all items parse correctly. The signal should only trigger a Crop/Glare diagnostic
-  when `completenessRatio < 0.70` AND `orphanedNameLines ≥ 3`.
-- This eliminates the false-positive entries in the discrepancy table for receipts 004, 006, 008.
+**A. ~~Refine orphanedNameLines signal~~** ✅ DONE in Stage 12
+- Fixed: threshold is now `orphanedNameLines ≥ 3 AND completenessRatio < 0.70`.
+- Fixed: `completenessRatio = 0` for complete failures (was returning 1 incorrectly).
 
 **B. Expand discount pattern coverage** (`src/utils/lineClassifier.ts`)
 - Add bare `coupon` + `discount` patterns when the price has a leading `-` sign (negative-indicating format)
@@ -550,3 +668,43 @@ International CZK support was the main parser improvement; remaining failures ar
 3. Run `npm run robustness` if changing parsing logic — check glare/right-crop scores.
 4. After each change: `npx tsc --noEmit` + `npm run benchmark`.
 5. Update this file's "What changed in this pass" section and checkpoint fields.
+
+---
+
+## Audit — 2026-05-15
+
+### Scores
+
+| Dimension | Score | Notes |
+|-----------|-------|-------|
+| MVP readiness | 5/10 | Works for clean receipts; fails ~40% of real photos |
+| OCR reliability | 4/10 | Fails on JFIF, thermal, glare, crop, non-English |
+| Parser reliability | 7/10 | Solid for standard formats; barcode prefix and 3+-line items unhandled |
+| Robustness | 4/10 | right-crop 43%, glare 79% — two most common real defects both near-broken |
+| Code quality | 6/10 | Clean architecture, no tests, big committed binary, duplicate ocrStrength |
+
+### Honest failure summary (real receipts)
+
+| Receipt | Failure mode | Root cause | Fixable? |
+|---------|-------------|-----------|---------|
+| receipt_001 | 2/7 items missed | Barcode prefix corrupts name candidate | **Yes — parser** |
+| receipt_003 | 0/16 items, 0% total | JFIF image unreadable (OCR strength 0.36) | No — image layer |
+| receipt_004 | 3/9 items missed | Barcode prefix + 3-line items | **Partly — parser** |
+| receipt_007 | 0/3 items | Thermal garble — names don't pass confidence filter | Partly — OCR |
+| receipt_011 | ~1/7 items, 77% total error | Thermal garble — prices not aligned | Partly — OCR |
+| receipt_012 | 0/11 items | Japanese text, English Tesseract | No — model layer |
+
+### Top 5 next actions (ordered by ROI)
+
+1. **Strip barcode prefixes** in `lineClassifier.ts` `extractNameCandidate()` — affects receipts 001, 004, 008 immediately
+2. **Add item-level GT** for receipts 008, 009, 011 — exposes hidden failures currently masked by "PASS" scores
+3. **Right-crop canvas padding** — retry OCR with padded right edge when orphanedNameLines ≥ 3 AND completenessRatio < 0.70
+4. **Unify `ocrResultStrength`** — remove duplicate between `ocr.ts` and `real-benchmark.ts`
+5. **Gitignore `benchmark-results.json`; remove `eng.traineddata` from git** — repo hygiene
+
+### Known blind spots in benchmark
+
+- 100/100 mock benchmark is fully overfit — means nothing for real photos
+- receipt_008/009/010 score "PASS" with count-only GT; item extraction may be poor
+- `orphanedNameLines` false-positives on Costco multi-line format (12–17 per receipt) even when parsing is correct
+- `completenessRatio = 100%` when both itemSum and total are 0 — false "all good" on complete failures

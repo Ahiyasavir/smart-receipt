@@ -2,6 +2,7 @@
 
 import { ReceiptItem } from '../types';
 import { interpretReceipt } from './receiptInterpreter';
+import { ClassifiedLine } from './lineClassifier';
 
 export interface ParseResult {
   items: ReceiptItem[];
@@ -14,6 +15,7 @@ export interface ParseResult {
   suspiciousLines: string[];
   discountSum: number;       // sum of explicit discount/coupon line amounts
   discountLineCount: number; // number of discount lines detected
+  classifiedLines: ClassifiedLine[]; // per-line classification for debug panel
 }
 
 // Normalizes comma-as-decimal-separator prices to period-decimal before parsing.
@@ -60,5 +62,6 @@ export function parseReceiptText(rawText: string): ParseResult {
     suspiciousLines: r.suspiciousLines,
     discountSum: r.discountSum,
     discountLineCount: r.discountLineCount,
+    classifiedLines: r.classifiedLines,
   };
 }

@@ -3,3 +3,5 @@ dist/
 *.local
 robustness-results.json
 real-benchmark-results.json
+benchmark-results.json
+*.traineddata

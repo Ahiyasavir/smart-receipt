@@ -28,6 +28,16 @@ function ocrResultStrength(text: string): number {
 
 const STRENGTH_ACCEPTABLE = 0.45;
 
+// Returns true when the OCR text has name-bearing lines but very few price lines —
+// the classic symptom of right-edge clipping where prices are cut off.
+function needsRightEdgeRescue(text: string): boolean {
+  const lines = text.split('\n').filter((l) => l.trim().length > 2);
+  if (lines.length < 3) return false;
+  const priceLines = lines.filter((l) => /\d+\.\d{2}/.test(l)).length;
+  const nameOnlyLines = lines.filter((l) => /[a-zA-Z]{3,}/.test(l) && !/\d+\.\d{2}/.test(l)).length;
+  return nameOnlyLines >= 3 && priceLines < nameOnlyLines * 0.4;
+}
+
 async function setPSM(worker: Tesseract.Worker, mode: string): Promise<void> {
   await (worker as unknown as { setParameters(p: Record<string, string>): Promise<void> })
     .setParameters({ tessedit_pageseg_mode: mode })
@@ -159,8 +169,22 @@ export async function runOCR(
       await setPSM(worker, '11');
       const r8 = await worker.recognize(src1);
       const s8 = ocrResultStrength(r8.data.text);
-      if (s8 > bestStrength) { bestText = r8.data.text; }
+      if (s8 > bestStrength) { bestText = r8.data.text; bestStrength = s8; }
     } catch { /* ignore */ }
+
+    // ── Pass 9: right-edge padding rescue ────────────────────────────────────
+    // Fires when name lines are plentiful but price lines are sparse — the telltale
+    // sign that Tesseract is clipping the right margin where prices sit.
+    if (image instanceof File && needsRightEdgeRescue(bestText)) {
+      onProgress?.(99, 'rescuing right-edge prices…');
+      try {
+        const srcPad = await preprocessForOCR(image, 'padRight');
+        await setPSM(worker, '6');
+        const r9 = await worker.recognize(srcPad);
+        const s9 = ocrResultStrength(r9.data.text);
+        if (s9 > bestStrength) { bestText = r9.data.text; }
+      } catch { /* ignore */ }
+    }
 
     onProgress?.(100, 'done');
     return bestText;

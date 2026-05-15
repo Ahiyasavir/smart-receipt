@@ -8,7 +8,7 @@
 //   rotate270 — rotate 270° CW then standard preprocessing (landscape phone, rotated right)
 // Small images are upscaled; large images are downscaled to a safe OCR range.
 
-export type PreprocessMode = 'standard' | 'sharp' | 'adaptive' | 'clahe' | 'rotate90' | 'rotate270';
+export type PreprocessMode = 'standard' | 'sharp' | 'adaptive' | 'clahe' | 'rotate90' | 'rotate270' | 'padRight';
 
 const MAX_SIDE = 1800;
 const MIN_LONG = 1000;
@@ -255,6 +255,30 @@ export async function preprocessForOCR(
     const { ctx, w, h } = await buildRotatedCanvas(file, mode === 'rotate90' ? 90 : 270);
     grayscaleContrast(ctx, w, h, 1.5);
     return ctx.canvas.toDataURL('image/png');
+  }
+
+  if (mode === 'padRight') {
+    // Adds 50px white padding on the right edge, then applies standard preprocessing.
+    // Rescues receipts where Tesseract clips the price column due to tight right margins.
+    const { ctx: srcCtx, w, h } = await buildCanvas(file);
+    grayscaleContrast(srcCtx, w, h, 1.5);
+    const srcData = srcCtx.canvas.toDataURL('image/png');
+    const PAD = 50;
+    const padded = document.createElement('canvas');
+    padded.width = w + PAD;
+    padded.height = h;
+    const pCtx = padded.getContext('2d');
+    if (!pCtx) throw new Error('Canvas 2D not available');
+    pCtx.fillStyle = '#ffffff';
+    pCtx.fillRect(0, 0, w + PAD, h);
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('padRight reload failed'));
+      img.src = srcData;
+    });
+    pCtx.drawImage(img, 0, 0);
+    return padded.toDataURL('image/png');
   }
 
   const { ctx, w, h } = await buildCanvas(file);

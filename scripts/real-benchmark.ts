@@ -228,7 +228,10 @@ function isFinancialNoise(name: string): boolean {
 // ─── Scoring ──────────────────────────────────────────────────────────────────
 
 function scoreReceipt(gt: GTReceipt, result: ParseResult, ocrText: string, diag: ScanDiagnostic): ReceiptScore {
-  const unverifiable   = gt.total === 0;
+  // Unverifiable = total unknown AND no GT items at all (e.g. completely blank/folded).
+  // A receipt with total=0 but known GT items IS scoreable (item recall is meaningful
+  // even though we cannot verify the total).
+  const unverifiable   = gt.total === 0 && gt.items.length === 0;
   const gtItemsUnknown = gt.items.length === 0 && gt.itemsCount > 0;
 
   const detected    = result.items.map(i => ({ name: i.name, price: i.amount }));

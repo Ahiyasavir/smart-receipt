@@ -18,6 +18,8 @@ export interface ClassifiedLine {
   price: number | null;          // last price found on the line, null if none
   nameCandidate: string | null;  // cleaned text that could be a product name
   hasTrailingArtifact: boolean;  // ends with a 1-3-char uppercase tax flag like "F", "Tft"
+  hadBarcodePrefix: boolean;     // true when a 5-13 digit SKU/barcode was stripped from the line start
+  debugReason?: string;          // why this line was classified the way it was (parser transparency)
 }
 
 // ─── Unit tokens — must NOT be stripped as trailing OCR artifacts ─────────────
@@ -182,9 +184,17 @@ function stripTrailingArtifact(s: string): string {
   return s.slice(0, s.length - m[0].length);
 }
 
+// Barcode / SKU prefix pattern — Costco, Whole Foods, and most major retailers
+// prefix each item line with a 5–13 digit product code before the name.
+const BARCODE_PREFIX_RE = /^\d{5,13}\s+/;
+
 // ─── Name candidate extraction ───────────────────────────────────────────────
 function extractNameCandidate(line: string): string | null {
   let s = line;
+  // Strip leading barcode/SKU prefix (5-13 digits at line start) before anything else.
+  // Must precede the quantity-strip so we don't confuse "458287 CRETORS MIX" with
+  // a quantity token like "2 @ EA".
+  s = s.replace(BARCODE_PREFIX_RE, '');
   // Strip all price patterns (including 1-decimal truncations like "3.9B" → strip "3.9")
   s = s.replace(/\$?\s*\d{1,3}(?:,\d{3})*\.\d{1,2}|\$?\s*\d+\.\d{1,2}/g, '');
   // Strip dropped-decimal price at end of line (secondary fallback: "   3 98 F")
@@ -207,13 +217,28 @@ function isValidNameCandidate(s: string): boolean {
   return s.trim().split(/\s+/).some((t) => t.length >= 3);
 }
 
+// Returns a human-readable reason why a raw name candidate was rejected.
+function nameRejectionReason(rawName: string | null): string {
+  if (rawName === null) return 'no name: all chars stripped by price/quantity/artifact rules';
+  const s = rawName.trim();
+  if (s.length < 4) return `name too short: "${s}" (${s.length} chars, need ≥4)`;
+  const letters = (s.match(/[a-zA-Z]/g) ?? []).length;
+  if (letters < 2) return `too few letters: "${s}" (${letters} letter(s), need ≥2)`;
+  return `all words < 3 chars: "${s}"`;
+}
+
 // ─── Classifier ──────────────────────────────────────────────────────────────
 export function classifyLine(raw: string): ClassifiedLine {
   const trimmed = raw.trim();
 
+  // Detect barcode/SKU prefix before any other processing so the flag is available
+  // on every return path. Costco and WF prefix every item line with a 5-13 digit code.
+  const hadBarcodePrefix = BARCODE_PREFIX_RE.test(trimmed);
+
   // Structural noise first (empty lines, dividers, phone numbers, *** headers ***)
-  if (STRUCTURAL_RE.some((p) => p.test(trimmed))) {
-    return { raw, trimmed, lineClass: 'noise', price: null, nameCandidate: null, hasTrailingArtifact: false };
+  const structMatch = STRUCTURAL_RE.find((p) => p.test(trimmed));
+  if (structMatch) {
+    return { raw, trimmed, lineClass: 'noise', price: null, nameCandidate: null, hasTrailingArtifact: false, hadBarcodePrefix, debugReason: `structural: ${structMatch}` };
   }
 
   const hasTrailingArtifact = TRAILING_ARTIFACT_RE.test(trimmed) &&
@@ -221,51 +246,69 @@ export function classifyLine(raw: string): ClassifiedLine {
 
   const price = extractLastPrice(trimmed);
   const rawNameCandidate = extractNameCandidate(trimmed);
-  const nameCandidate = rawNameCandidate && isValidNameCandidate(rawNameCandidate) ? rawNameCandidate : null;
+  // Accept exactly-3-char all-uppercase tokens (e.g. "YAK") when a price is present.
+  // Guards against noise words like "TAX" / "VAT" which are caught earlier by TAX_RE / NOISE_RE.
+  const is3CharUpperWithPrice =
+    price !== null &&
+    rawNameCandidate !== null &&
+    /^[A-Z]{3}$/.test(rawNameCandidate.trim());
+  const nameCandidate = rawNameCandidate && (isValidNameCandidate(rawNameCandidate) || is3CharUpperWithPrice)
+    ? rawNameCandidate
+    : null;
 
   // Total lines (checked before subtotal to avoid subtotal consuming total)
-  if (TOTAL_RE.some((p) => p.test(trimmed))) {
-    return { raw, trimmed, lineClass: 'total', price, nameCandidate: null, hasTrailingArtifact };
+  const totalMatch = TOTAL_RE.find((p) => p.test(trimmed));
+  if (totalMatch) {
+    return { raw, trimmed, lineClass: 'total', price, nameCandidate: null, hasTrailingArtifact, hadBarcodePrefix, debugReason: `keyword: total (${totalMatch})` };
   }
 
   // Subtotal lines (including OCR-garbled variants like SUBTOTAI)
-  if (SUBTOTAL_RE.some((p) => p.test(trimmed))) {
-    return { raw, trimmed, lineClass: 'total', price, nameCandidate: null, hasTrailingArtifact };
+  const subtotalMatch = SUBTOTAL_RE.find((p) => p.test(trimmed));
+  if (subtotalMatch) {
+    return { raw, trimmed, lineClass: 'total', price, nameCandidate: null, hasTrailingArtifact, hadBarcodePrefix, debugReason: `keyword: subtotal (${subtotalMatch})` };
   }
 
   // Tax lines
-  if (TAX_RE.some((p) => p.test(trimmed))) {
-    return { raw, trimmed, lineClass: 'tax', price, nameCandidate: null, hasTrailingArtifact };
+  const taxMatch = TAX_RE.find((p) => p.test(trimmed));
+  if (taxMatch) {
+    return { raw, trimmed, lineClass: 'tax', price, nameCandidate: null, hasTrailingArtifact, hadBarcodePrefix, debugReason: `keyword: tax (${taxMatch})` };
   }
 
   // Payment lines
-  if (PAYMENT_RE.some((p) => p.test(trimmed))) {
-    return { raw, trimmed, lineClass: 'payment', price, nameCandidate: null, hasTrailingArtifact };
+  const payMatch = PAYMENT_RE.find((p) => p.test(trimmed));
+  if (payMatch) {
+    return { raw, trimmed, lineClass: 'payment', price, nameCandidate: null, hasTrailingArtifact, hadBarcodePrefix, debugReason: `keyword: payment (${payMatch})` };
   }
 
   // Discount lines: savings/coupon entries with an amount — must precede NOISE_RE
   // so the price is captured rather than silently discarded.
-  if (price !== null && DISCOUNT_LINE_RE.some((p) => p.test(trimmed))) {
-    return { raw, trimmed, lineClass: 'discount', price, nameCandidate: null, hasTrailingArtifact };
+  const discountMatch = price !== null ? DISCOUNT_LINE_RE.find((p) => p.test(trimmed)) : undefined;
+  if (discountMatch) {
+    return { raw, trimmed, lineClass: 'discount', price, nameCandidate: null, hasTrailingArtifact, hadBarcodePrefix, debugReason: `keyword: discount (${discountMatch})` };
   }
 
   // Noise / metadata lines
-  if (NOISE_RE.some((p) => p.test(trimmed))) {
-    return { raw, trimmed, lineClass: 'noise', price, nameCandidate: null, hasTrailingArtifact };
+  const noiseMatch = NOISE_RE.find((p) => p.test(trimmed));
+  if (noiseMatch) {
+    return { raw, trimmed, lineClass: 'noise', price, nameCandidate: null, hasTrailingArtifact, hadBarcodePrefix, debugReason: `noise pattern: ${noiseMatch}` };
   }
 
   // Decide: item / name_only / price_only / noise
   if (nameCandidate && price !== null) {
-    return { raw, trimmed, lineClass: 'item', price, nameCandidate, hasTrailingArtifact };
+    const reason = is3CharUpperWithPrice ? '3-char uppercase item (YAK rule)' : undefined;
+    return { raw, trimmed, lineClass: 'item', price, nameCandidate, hasTrailingArtifact, hadBarcodePrefix, debugReason: reason };
   }
   if (nameCandidate && price === null) {
-    return { raw, trimmed, lineClass: 'name_only', price: null, nameCandidate, hasTrailingArtifact };
+    return { raw, trimmed, lineClass: 'name_only', price: null, nameCandidate, hasTrailingArtifact, hadBarcodePrefix };
   }
   if (!nameCandidate && price !== null) {
-    return { raw, trimmed, lineClass: 'price_only', price, nameCandidate: null, hasTrailingArtifact };
+    return { raw, trimmed, lineClass: 'price_only', price, nameCandidate: null, hasTrailingArtifact, hadBarcodePrefix, debugReason: nameRejectionReason(rawNameCandidate) };
   }
 
-  return { raw, trimmed, lineClass: 'noise', price: null, nameCandidate: null, hasTrailingArtifact };
+  const fallthrough = nameCandidate === null
+    ? nameRejectionReason(rawNameCandidate)
+    : 'no price found';
+  return { raw, trimmed, lineClass: 'noise', price: null, nameCandidate: null, hasTrailingArtifact, hadBarcodePrefix, debugReason: `fallthrough: ${fallthrough}` };
 }
 
 export function classifyLines(rawText: string): ClassifiedLine[] {

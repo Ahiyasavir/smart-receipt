@@ -72,11 +72,14 @@ export function classifyFailureMode(rawText: string, result: ParseResult): ScanD
   // Completeness: how much of the total is explained by (items − discounts).
   // Only meaningful when a receipt total was detected (result.total ≠ result.itemSum implies
   // a detectedTotal exists). Clamped to [0, 1].
+  // When both total and itemSum are 0 (complete parse failure), ratio is 0 — not 1.
   const adjustedItemSum = Math.max(0, result.itemSum - result.discountSum);
   const completenessRatio =
     result.total > 0 && result.itemSum > 0
       ? Math.min(1, adjustedItemSum / result.total)
-      : 1;
+      : result.total === 0 && result.itemSum === 0
+        ? 0
+        : 1;
 
   let mode: ScanFailureMode;
 
@@ -126,8 +129,11 @@ export function getScanExplanation(diag: ScanDiagnostic): ScanExplanation {
         tips.push('Discount, coupon, or loyalty-savings lines are excluded from items');
       }
 
-      // Crop / glare hint — show when ≥2 item-name lines had no detectable price
-      if (diag.orphanedNameLines >= 2) {
+      // Crop / glare hint — only surface when orphaned lines are high AND completeness
+      // is genuinely low. Multi-line receipt formats (Costco, WFM) produce many orphaned
+      // name lines even when correctly parsed; gating on completenessRatio < 0.70
+      // prevents false positives on those receipts.
+      if (diag.orphanedNameLines >= 3 && diag.completenessRatio < 0.70) {
         tips.push(
           `${diag.orphanedNameLines} item line(s) had no price — receipt may be cropped or have glare on the right edge`,
         );

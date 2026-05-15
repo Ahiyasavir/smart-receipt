@@ -1,20 +1,20 @@
 Real Receipt Benchmark Report — Stage 10
-Generated: 2026-05-14T07:55:11.470Z
+Generated: 2026-05-15T09:21:27.320Z
 
 ID           | Verdict | Score | Items% | Total% | Mode          | Diagnostics
 ─────────────────────────────────────────────────────────────────────────────────────
-receipt_001  | PASS    |    73 |    71% |   100% | partial       | Mismatch
-receipt_002  | SKIP    |   n/a |    n/a |    n/a | empty         | Unverifiable
-receipt_003  | FAIL    |    25 |     0% |     0% | format-unsupported| none
+receipt_001  | PASS    |    79 |    86% |   100% | good          | none
+receipt_002  | WARN    |    45 |     0% |   100% | empty         | LowCov(0%)
+receipt_003  | FAIL    |    25 |     0% |     0% | format-unsupported| LowCov(0%)
 receipt_004  | PASS    |    77 |    56% |    96% | partial       | Crop/Glare(12), Mismatch
 receipt_005  | PASS    |   100 |   100% |   100% | good          | none
 receipt_006  | PASS    |    85 |   100% |   100% | partial       | Crop/Glare(17), Mismatch
-receipt_007  | WARN    |    45 |     0% |   100% | partial       | Crop/Glare(2), Mismatch, LowCov(47%)
-receipt_008  | PASS    |    85 |   ~88% |    99% | partial       | Crop/Glare(15), Mismatch, Incomplete
-receipt_009  | PASS    |    85 |  ~133% |   100% | partial       | Mismatch
-receipt_010  | PASS    |    85 |   ~83% |   100% | good          | Crop/Glare(9)
-receipt_011  | WARN    |    65 |   ~14% |    23% | good          | Crop/Glare(9)
-receipt_012  | WARN    |    65 |    ~0% |     0% | empty         | none
+receipt_007  | WARN    |    58 |    33% |   100% | partial       | Crop/Glare(2), Mismatch, LowCov(47%)
+receipt_008  | PASS    |    78 |    82% |    99% | partial       | Crop/Glare(15), Mismatch, Incomplete
+receipt_009  | PASS    |    85 |   100% |   100% | partial       | Mismatch
+receipt_010  | PASS    |    78 |    83% |   100% | good          | Crop/Glare(9)
+receipt_011  | FAIL    |    33 |    20% |    23% | good          | Crop/Glare(9)
+receipt_012  | FAIL    |    25 |     0% |     0% | empty         | LowCov(0%)
 
 Notes:
   SKIP = unverifiable receipt (folded/cut; no GT total)
