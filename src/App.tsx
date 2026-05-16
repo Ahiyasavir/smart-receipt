@@ -4,6 +4,8 @@ import { useAuth } from './hooks/useAuth';
 import { useReceipts } from './hooks/useReceipts';
 import { useBudgets } from './hooks/useBudgets';
 import AuthScreen from './components/AuthScreen';
+import Onboarding from './components/Onboarding';
+import SpendingWrapped from './components/SpendingWrapped';
 import ReceiptUploader from './components/ReceiptUploader';
 import Dashboard from './components/Dashboard';
 import ItemList from './components/ItemList';
@@ -59,7 +61,9 @@ export default function App() {
   const [toast,           setToast]           = useState<string | null>(null);
   const [budgetOpen,      setBudgetOpen]      = useState(false);
   const [bankImportOpen,  setBankImportOpen]  = useState(false);
+  const [wrappedOpen,     setWrappedOpen]     = useState(false);
   const [darkMode,        setDarkMode]        = useState(() => localStorage.getItem('smartreceipt_dark') === '1');
+  const [showOnboarding,  setShowOnboarding]  = useState(() => !localStorage.getItem('smartreceipt_onboarded'));
 
   const installPromptRef = useRef<Event & { prompt: () => Promise<void> } | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -184,6 +188,14 @@ export default function App() {
 
   return (
     <div className={`min-h-screen ${dm ? 'bg-gray-900 text-white' : 'bg-gray-50'}`}>
+      {/* ── Onboarding (first launch only) ──────────────────────── */}
+      {showOnboarding && (
+        <Onboarding onDone={() => {
+          localStorage.setItem('smartreceipt_onboarded', '1');
+          setShowOnboarding(false);
+        }} />
+      )}
+
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className={`${dm ? 'bg-gray-800' : 'bg-white'} shadow-sm sticky top-0 z-40`}>
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
@@ -263,6 +275,7 @@ export default function App() {
             budgets={budgets}
             onGoToScan={() => switchTab('scan')}
             onOpenBudgets={() => setBudgetOpen(true)}
+            onOpenWrapped={() => setWrappedOpen(true)}
           />
         )}
 
@@ -406,6 +419,17 @@ export default function App() {
                             {CATEGORY_META[cat]?.emoji} {CATEGORY_META[cat]?.label}
                           </span>
                         ))}
+                        {r.returnDeadline && (() => {
+                          const daysLeft = Math.ceil((new Date(r.returnDeadline).getTime() - Date.now()) / 86400000);
+                          if (daysLeft < 0) return null;
+                          return (
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${
+                              daysLeft <= 3 ? 'bg-red-100 text-red-600' : daysLeft <= 7 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-600'
+                            }`}>
+                              ⏰ {daysLeft === 0 ? 'Return today!' : `Return in ${daysLeft}d`}
+                            </span>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -453,6 +477,62 @@ export default function App() {
                   setSelectedReceipt(updated);
                 }}
               />
+            </div>
+
+            {/* Return window */}
+            <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm p-4`}>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">⏰ Return Deadline</label>
+                {selectedReceipt.returnDeadline && (() => {
+                  const daysLeft = Math.ceil((new Date(selectedReceipt.returnDeadline).getTime() - Date.now()) / 86400000);
+                  return (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      daysLeft < 0 ? 'bg-gray-100 text-gray-400 dark:bg-gray-700' :
+                      daysLeft <= 3 ? 'bg-red-100 text-red-600 dark:bg-red-900/30' :
+                      daysLeft <= 7 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30' :
+                      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30'
+                    }`}>
+                      {daysLeft < 0 ? 'Expired' : daysLeft === 0 ? 'Last day!' : `${daysLeft}d left`}
+                    </span>
+                  );
+                })()}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {[30, 60, 90].map((days) => {
+                  const d = new Date(selectedReceipt.date);
+                  d.setDate(d.getDate() + days);
+                  const iso = d.toISOString().split('T')[0];
+                  return (
+                    <button key={days}
+                      onClick={() => {
+                        const updated = { ...selectedReceipt, returnDeadline: iso };
+                        updateReceipt(updated); setSelectedReceipt(updated);
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors ${
+                        selectedReceipt.returnDeadline === iso
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : dm ? 'border-gray-600 text-gray-300 hover:border-blue-500' : 'border-gray-200 text-gray-600 hover:border-blue-400'
+                      }`}>
+                      {days}d
+                    </button>
+                  );
+                })}
+                {selectedReceipt.returnDeadline && (
+                  <button
+                    onClick={() => {
+                      const updated = { ...selectedReceipt, returnDeadline: undefined };
+                      updateReceipt(updated); setSelectedReceipt(updated);
+                    }}
+                    className={`text-xs px-3 py-1.5 rounded-xl border font-medium ${dm ? 'border-gray-600 text-gray-400' : 'border-gray-200 text-gray-400'} hover:border-red-300 hover:text-red-500 transition-colors`}>
+                    Clear
+                  </button>
+                )}
+              </div>
+              {selectedReceipt.returnDeadline && (
+                <p className="text-xs text-gray-400 mt-2">
+                  Return by: {new Date(selectedReceipt.returnDeadline).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              )}
             </div>
 
             {/* Action buttons */}
@@ -604,6 +684,7 @@ export default function App() {
       {/* ── Modals ──────────────────────────────────────────────── */}
       {budgetOpen && <BudgetModal budgets={budgets} onSave={updateBudgets} onClose={() => setBudgetOpen(false)} />}
       {bankImportOpen && <BankImportModal onImport={handleBankImport} onClose={() => setBankImportOpen(false)} />}
+      {wrappedOpen && <SpendingWrapped receipts={receipts} onClose={() => setWrappedOpen(false)} />}
 
       {/* ── Toast ───────────────────────────────────────────────── */}
       {toast && (

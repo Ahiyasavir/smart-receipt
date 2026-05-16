@@ -13,6 +13,7 @@ interface Props {
   budgets: UserBudgets;
   onGoToScan?: () => void;
   onOpenBudgets?: () => void;
+  onOpenWrapped?: () => void;
 }
 
 const PERIOD_LABELS: { id: Period; label: string }[] = [
@@ -75,6 +76,46 @@ function buildDailyData(receipts: Receipt[], days: number) {
     if (key in map) map[key] = (map[key] ?? 0) + r.total;
   }
   return Object.entries(map).map(([date, amount]) => ({ date, amount: Math.round(amount * 100) / 100 }));
+}
+
+// Detect recurring/subscription charges (same store ~monthly, ≥2 times)
+interface Subscription {
+  store: string;
+  avgAmount: number;
+  count: number;
+  lastDate: string;
+  nextEstimate: string; // estimated next charge date
+}
+
+function buildSubscriptions(receipts: Receipt[]): Subscription[] {
+  const storeMap: Record<string, Receipt[]> = {};
+  for (const r of receipts) {
+    if (!storeMap[r.storeName]) storeMap[r.storeName] = [];
+    storeMap[r.storeName].push(r);
+  }
+
+  const subs: Subscription[] = [];
+  for (const [store, recs] of Object.entries(storeMap)) {
+    if (recs.length < 2) continue;
+    const sorted = [...recs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Check if any consecutive pair is ~28–36 days apart (monthly cadence)
+    let isRecurring = false;
+    let gapDays = 30;
+    for (let i = 1; i < sorted.length; i++) {
+      const days = (new Date(sorted[i].date).getTime() - new Date(sorted[i - 1].date).getTime()) / 86400000;
+      if (days >= 26 && days <= 38) { isRecurring = true; gapDays = Math.round(days); break; }
+    }
+    if (!isRecurring) continue;
+
+    const avgAmount = Math.round(recs.reduce((s, r) => s + r.total, 0) / recs.length * 100) / 100;
+    const lastDate  = sorted[sorted.length - 1].date;
+    const next      = new Date(lastDate);
+    next.setDate(next.getDate() + gapDays);
+
+    subs.push({ store, avgAmount, count: recs.length, lastDate, nextEstimate: next.toISOString() });
+  }
+  return subs.sort((a, b) => b.avgAmount - a.avgAmount);
 }
 
 // Build spending insights for the period
@@ -149,7 +190,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   );
 };
 
-export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets }: Props) {
+export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets, onOpenWrapped }: Props) {
   const [period,    setPeriod]    = useState<Period>('month');
   const [chartView, setChartView] = useState<'bar' | 'pie' | 'trend'>('bar');
 
@@ -166,10 +207,11 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
   const monthDiff    = total - lastMonthTotal;
   const monthDiffPct = lastMonthTotal > 0 ? (monthDiff / lastMonthTotal) * 100 : null;
 
-  const dailyData  = useMemo(() => buildDailyData(receipts, period === 'week' ? 7 : period === 'month' ? 30 : 60), [receipts, period]);
-  const weeklyData = useMemo(() => buildWeeklyTrend(receipts), [receipts]);
-  const pieData    = summaries.map((s) => ({ name: s.label, value: Math.round(s.total * 100) / 100, color: s.color, emoji: s.emoji }));
-  const insights   = useMemo(() => buildInsights(filtered), [filtered]);
+  const dailyData     = useMemo(() => buildDailyData(receipts, period === 'week' ? 7 : period === 'month' ? 30 : 60), [receipts, period]);
+  const weeklyData    = useMemo(() => buildWeeklyTrend(receipts), [receipts]);
+  const pieData       = summaries.map((s) => ({ name: s.label, value: Math.round(s.total * 100) / 100, color: s.color, emoji: s.emoji }));
+  const insights      = useMemo(() => buildInsights(filtered), [filtered]);
+  const subscriptions = useMemo(() => buildSubscriptions(receipts), [receipts]);
 
   if (receipts.length === 0) {
     return (
@@ -221,6 +263,19 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
               <p className="text-xs opacity-60 mt-1">{itemCount} item{itemCount !== 1 ? 's' : ''} tracked</p>
             </div>
           </div>
+
+          {/* Spending Wrapped CTA */}
+          {onOpenWrapped && receipts.length >= 3 && (
+            <button onClick={onOpenWrapped}
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:opacity-95 active:scale-[0.99] transition-all">
+              <span className="text-3xl">🎉</span>
+              <div className="text-left">
+                <p className="font-semibold text-sm">Your Monthly Spending Wrapped</p>
+                <p className="text-xs opacity-70">Generate a shareable summary card</p>
+              </div>
+              <span className="ml-auto text-white/60 text-lg">›</span>
+            </button>
+          )}
 
           {/* Monthly comparison */}
           {period === 'month' && lastMonthTotal > 0 && (
@@ -276,6 +331,48 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Recurring / Subscriptions */}
+          {subscriptions.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">🔄 Recurring Charges</h3>
+                <span className="text-xs text-gray-400">
+                  ₪{subscriptions.reduce((s, r) => s + r.avgAmount, 0).toFixed(0)}/mo
+                </span>
+              </div>
+              <ul className="divide-y divide-gray-50 dark:divide-gray-700">
+                {subscriptions.map((sub) => {
+                  const daysUntil = Math.round((new Date(sub.nextEstimate).getTime() - Date.now()) / 86400000);
+                  const soon = daysUntil >= 0 && daysUntil <= 7;
+                  return (
+                    <li key={sub.store} className="px-4 py-3 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-lg shrink-0">
+                        🔁
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{sub.store}</p>
+                        <p className="text-xs text-gray-400">
+                          {sub.count}× detected ·{' '}
+                          {soon
+                            ? <span className="text-amber-500 font-medium">due in {daysUntil}d</span>
+                            : `next ~${new Date(sub.nextEstimate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-purple-600 dark:text-purple-400 shrink-0">
+                        ${sub.avgAmount.toFixed(2)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="px-4 py-2.5 border-t border-gray-50 dark:border-gray-700">
+                <p className="text-xs text-gray-400 text-center">
+                  Detected from stores you visit monthly — review to cancel unwanted charges
+                </p>
+              </div>
             </div>
           )}
 

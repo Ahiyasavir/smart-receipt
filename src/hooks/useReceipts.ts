@@ -13,19 +13,21 @@ interface ReceiptRow {
   notes?: string | null;
   source?: string | null;
   external_id?: string | null;
+  return_deadline?: string | null;
 }
 
 function rowToReceipt(row: ReceiptRow): Receipt {
   return {
-    id:         row.id,
-    date:       row.date,
-    storeName:  row.store_name,
-    rawText:    row.raw_text,
-    items:      row.items,
-    total:      Number(row.total),
-    notes:      row.notes ?? undefined,
-    source:     (row.source as Receipt['source']) ?? undefined,
-    externalId: row.external_id ?? undefined,
+    id:             row.id,
+    date:           row.date,
+    storeName:      row.store_name,
+    rawText:        row.raw_text,
+    items:          row.items,
+    total:          Number(row.total),
+    notes:          row.notes ?? undefined,
+    source:         (row.source as Receipt['source']) ?? undefined,
+    externalId:     row.external_id ?? undefined,
+    returnDeadline: row.return_deadline ?? undefined,
   };
 }
 
@@ -67,10 +69,11 @@ export function useReceipts(userId: string) {
   const updateReceipt = useCallback(async (receipt: Receipt) => {
     if (!userId) return;
     const { error } = await supabase.from('receipts').update({
-      store_name: receipt.storeName,
-      items:      receipt.items,
-      total:      receipt.total,
-      notes:      receipt.notes ?? null,
+      store_name:      receipt.storeName,
+      items:           receipt.items,
+      total:           receipt.total,
+      notes:           receipt.notes ?? null,
+      return_deadline: receipt.returnDeadline ?? null,
     }).eq('id', receipt.id).eq('user_id', userId);
     if (error) { console.error('updateReceipt:', error.message); return; }
     setReceipts((prev) => prev.map((r) => r.id === receipt.id ? receipt : r));

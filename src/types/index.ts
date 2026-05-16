@@ -18,6 +18,7 @@ export interface Receipt {
   imageDataUrl?: string; // not persisted to DB
   source?: 'scan' | 'bank-sync' | 'bank-import';
   externalId?: string;
+  returnDeadline?: string; // ISO date — the last day to return items
 }
 
 export type Category =
