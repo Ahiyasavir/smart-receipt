@@ -17,6 +17,7 @@ import Dashboard from './components/Dashboard';
 import ItemList from './components/ItemList';
 import BudgetModal from './components/BudgetModal';
 import BankConnectionModal from './components/BankConnectionModal';
+import EmailSetupGuide from './components/EmailSetupGuide';
 import { useBankConnections } from './hooks/useBankConnections';
 import { useMerchantOverrides } from './hooks/useMerchantOverrides';
 import { merchantKey } from './utils/merchantNormalizer';
@@ -71,6 +72,7 @@ export default function App() {
   const [toast,           setToast]           = useState<string | null>(null);
   const [budgetOpen,      setBudgetOpen]      = useState(false);
   const [bankConnectOpen,   setBankConnectOpen]   = useState(false);
+  const [emailGuideOpen,    setEmailGuideOpen]    = useState(false);
   const [wrappedOpen,     setWrappedOpen]     = useState(false);
   const [darkMode,        setDarkMode]        = useState(() => localStorage.getItem('smartreceipt_dark') === '1');
   const [showOnboarding,  setShowOnboarding]  = useState(() => !localStorage.getItem('smartreceipt_onboarded'));
@@ -768,6 +770,14 @@ export default function App() {
                     <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-semibold shrink-0">✓</span>
                   )}
                 </button>
+                <button onClick={() => setEmailGuideOpen(true)}
+                  className={`w-full flex items-center gap-3 ${dm ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} rounded-xl p-2.5 transition-colors text-left`}>
+                  <span className="text-xl">📧</span>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">Auto-track via email</p>
+                    <p className="text-xs text-gray-400">Scan bank alert emails — no passwords</p>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -823,6 +833,17 @@ export default function App() {
           overrides={merchantOverrides}
           onImport={(receipts, bankId, bankName) => handleBankImport(receipts, bankId, bankName)}
           onClose={() => setBankConnectOpen(false)}
+        />
+      )}
+      {emailGuideOpen && (
+        <EmailSetupGuide
+          onConnectGmail={() => {
+            // Gmail OAuth consent UI is wired to the server-side fetcher in a
+            // later stage; until then, guide the user to enable alerts.
+            setEmailGuideOpen(false);
+            setToast('Gmail connection coming soon — enable card email alerts now so they\'re ready');
+          }}
+          onClose={() => setEmailGuideOpen(false)}
         />
       )}
       {wrappedOpen && <SpendingWrapped receipts={receipts} onClose={() => setWrappedOpen(false)} />}
