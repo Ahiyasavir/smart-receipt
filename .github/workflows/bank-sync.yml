@@ -34,6 +34,9 @@ jobs:
         run: npm install
 
       - name: Run bank sync
+        # Skip entirely when Supabase secrets are not configured.
+        # GitHub sets unset secrets to an empty string, so we check != ''.
+        if: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
         working-directory: scraper
         env:
           PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
