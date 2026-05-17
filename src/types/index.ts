@@ -18,6 +18,7 @@ export interface Receipt {
   imageDataUrl?: string; // not persisted to DB
   source?: 'scan' | 'bank-sync' | 'bank-import';
   externalId?: string;
+  currency?: string;  // ISO 4217 code of the original transaction (e.g. 'ILS', 'USD')
   returnDeadline?: string; // ISO date — the last day to return items
 }
 
@@ -54,4 +55,15 @@ export interface UserProfile {
   name: string;
   emoji: string;
   color: string; // hex accent color
+}
+
+export interface BankConnection {
+  id: string;
+  bankId: string;
+  bankName: string;
+  /** csv_imported — user uploaded a CSV; auto_sync — GitHub Actions scraper; error | disconnected */
+  status: 'csv_imported' | 'auto_sync' | 'error' | 'disconnected';
+  lastSync?: string;       // ISO timestamp
+  transactionCount: number;
+  errorMessage?: string;
 }

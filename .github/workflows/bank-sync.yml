@@ -33,8 +33,9 @@ jobs:
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
         run: npm install
 
-      # Secrets are injected as env vars so bash can test them safely.
-      # An unset GitHub secret arrives as an empty string — skip if either is absent.
+      # GitHub evaluates step-level `if:` before env injection, so
+      # `if: secrets.X != ''` is unreliable. Inject the secrets here and decide
+      # in bash instead — missing config degrades gracefully (job stays green).
       - name: Check Supabase secrets
         id: secrets-check
         env:
@@ -42,10 +43,10 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
-            echo "available=true"  >> $GITHUB_OUTPUT
+            echo "available=true" >> "$GITHUB_OUTPUT"
           else
-            echo "available=false" >> $GITHUB_OUTPUT
-            echo "Supabase secrets not configured — sync will be skipped."
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Supabase secrets not configured — bank sync skipped (this is not a failure)."
           fi
 
       - name: Run bank sync

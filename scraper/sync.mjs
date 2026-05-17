@@ -4,6 +4,18 @@
  * Fetches transactions from configured Israeli banks and upserts them into
  * Supabase so they appear in SmartReceipt automatically.
  *
+ * ── Provider abstraction ──────────────────────────────────────────────────────
+ * Israel has no Plaid/open-banking aggregator covering local banks, so the
+ * default provider is the open-source `israeli-bank-scrapers` running here,
+ * server-side, with credentials supplied only as GitHub Secrets (never in the
+ * frontend, never typed into the app, never stored in our DB).
+ *
+ * To add another market/provider later (e.g. Plaid, Tink, TrueLayer):
+ * implement a module that yields the same shape this file consumes —
+ *   scrape() → { success, accounts: [{ accountNumber, currency, txns: [...] }] }
+ * — and register it alongside BANKS. Everything downstream (normalization,
+ * override loop, dedup, storage) is provider-agnostic and stays unchanged.
+ *
  * Required env vars (set as GitHub Secrets):
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_USER_ID
  *
@@ -19,22 +31,23 @@
 
 import { createScraper } from 'israeli-bank-scrapers';
 import { createClient }   from '@supabase/supabase-js';
+import { normalizeMerchantName, merchantKey } from './lib/merchant.mjs';
 
-// ── Validate required env vars BEFORE touching createClient ──────────────────
+// ── Supabase setup ────────────────────────────────────────────────────────────
 const SUPABASE_URL              = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const USER_ID                   = process.env.SUPABASE_USER_ID;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.log('Skipping sync: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-  process.exit(0);
-}
-if (!USER_ID) {
-  console.log('Skipping sync: missing SUPABASE_USER_ID');
+  console.log('ℹ️  SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set — sync unavailable, skipping.');
   process.exit(0);
 }
 
-// ── Supabase client (only reached when all vars are present) ──────────────────
+if (!USER_ID) {
+  console.log('ℹ️  SUPABASE_USER_ID not set — sync unavailable, skipping.');
+  process.exit(0);
+}
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // ── Category classifier (mirrors src/utils/categoryClassifier.ts) ─────────────
@@ -125,8 +138,26 @@ const BANKS = [
   },
 ];
 
+// ── User category corrections ─────────────────────────────────────────────────
+// Pull the user's saved merchant→category overrides so prior corrections made in
+// the app carry over to auto-synced transactions (closes the learning loop).
+async function loadOverrides() {
+  const map = new Map();
+  const { data, error } = await supabase
+    .from('merchant_overrides')
+    .select('merchant_key, category')
+    .eq('user_id', USER_ID);
+  if (error) {
+    console.log(`  ⚠️  Could not load merchant overrides: ${error.message}`);
+    return map;
+  }
+  for (const row of data ?? []) map.set(row.merchant_key, row.category);
+  if (map.size) console.log(`Loaded ${map.size} user category override(s).`);
+  return map;
+}
+
 // ── Sync one bank ─────────────────────────────────────────────────────────────
-async function syncBank(bank) {
+async function syncBank(bank, overrides) {
   console.log(`\n▶ ${bank.name}`);
 
   const startDate = new Date();
@@ -170,26 +201,35 @@ async function syncBank(bank) {
       }
 
       const externalId = `${bank.id}_${account.accountNumber}_${txn.identifier ?? txn.date + '_' + amount}`;
-      const description = txn.description ?? txn.memo ?? 'Bank transaction';
-      const date  = new Date(txn.date).toISOString();
-      const cat   = classifyCategory(description);
+      const rawDescription = txn.description ?? txn.memo ?? 'Bank transaction';
+      const merchant = normalizeMerchantName(rawDescription);
+      const key      = merchantKey(rawDescription);
+      const date     = new Date(txn.date).toISOString();
+      const currency = txn.originalCurrency ?? account.currency ?? 'ILS';
 
+      // User correction wins; otherwise deterministic keyword classifier.
+      const cat = overrides.get(key)
+        ?? classifyCategory(`${rawDescription} ${merchant}`);
+
+      // Bank data is transaction-level, not itemized — one line == the whole
+      // transaction. We do NOT fabricate item-level receipt detail.
       const item = {
         id:       crypto.randomUUID(),
-        name:     description,
+        name:     merchant,
         amount,
         category: cat,
-        raw:      JSON.stringify(txn),
+        raw:      JSON.stringify(txn), // full scraper payload for debugging
       };
 
       const row = {
         id:          crypto.randomUUID(),
         user_id:     USER_ID,
         date,
-        store_name:  description,
-        raw_text:    JSON.stringify(txn),
+        store_name:  merchant,         // normalized, clean
+        raw_text:    rawDescription,   // original bank description (per spec)
         items:       [item],
         total:       amount,
+        currency,
         notes:       null,
         external_id: externalId,
         source:      'bank-sync',
@@ -223,9 +263,11 @@ async function main() {
 
   console.log(`Syncing ${enabled.length} bank(s)…`);
 
+  const overrides = await loadOverrides();
+
   let totalInserted = 0, totalErrors = 0;
   for (const bank of enabled) {
-    const { inserted, errors } = await syncBank(bank);
+    const { inserted, errors } = await syncBank(bank, overrides);
     totalInserted += inserted;
     totalErrors   += errors;
   }

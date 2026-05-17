@@ -13,6 +13,7 @@ interface ReceiptRow {
   notes?: string | null;
   source?: string | null;
   external_id?: string | null;
+  currency?: string | null;
   return_deadline?: string | null;
 }
 
@@ -27,6 +28,7 @@ function rowToReceipt(row: ReceiptRow): Receipt {
     notes:          row.notes ?? undefined,
     source:         (row.source as Receipt['source']) ?? undefined,
     externalId:     row.external_id ?? undefined,
+    currency:       row.currency ?? undefined,
     returnDeadline: row.return_deadline ?? undefined,
   };
 }
@@ -50,20 +52,46 @@ export function useReceipts(userId: string) {
       });
   }, [userId]);
 
-  const addReceipt = useCallback(async (receipt: Receipt) => {
-    if (!userId) return;
-    const { error } = await supabase.from('receipts').insert({
-      id:         receipt.id,
-      user_id:    userId,
-      date:       receipt.date,
-      store_name: receipt.storeName,
-      raw_text:   receipt.rawText,
-      items:      receipt.items,
-      total:      receipt.total,
-      notes:      receipt.notes ?? null,
-    });
-    if (error) { console.error('addReceipt:', error.message); return; }
+  /**
+   * Insert a receipt. Receipts that carry an `externalId` (bank sync / CSV
+   * import) are upserted on (user_id, external_id) so re-importing the same
+   * statement is idempotent — no duplicate transactions. Scanned receipts have
+   * no externalId and are plain inserts.
+   */
+  const addReceipt = useCallback(async (receipt: Receipt): Promise<boolean> => {
+    if (!userId) return false;
+
+    const row = {
+      id:              receipt.id,
+      user_id:         userId,
+      date:            receipt.date,
+      store_name:      receipt.storeName,
+      raw_text:        receipt.rawText,
+      items:           receipt.items,
+      total:           receipt.total,
+      notes:           receipt.notes ?? null,
+      source:          receipt.source ?? 'scan',
+      external_id:     receipt.externalId ?? null,
+      currency:        receipt.currency ?? null,
+      return_deadline: receipt.returnDeadline ?? null,
+    };
+
+    if (receipt.externalId) {
+      // Idempotent path: ignore rows that already exist for this external_id.
+      const { data, error } = await supabase
+        .from('receipts')
+        .upsert(row, { onConflict: 'user_id,external_id', ignoreDuplicates: true })
+        .select();
+      if (error) { console.error('addReceipt(upsert):', error.message); return false; }
+      // Empty data => row already existed and was skipped; don't double-add.
+      if (!data || data.length === 0) return false;
+    } else {
+      const { error } = await supabase.from('receipts').insert(row);
+      if (error) { console.error('addReceipt:', error.message); return false; }
+    }
+
     setReceipts((prev) => [receipt, ...prev]);
+    return true;
   }, [userId]);
 
   const updateReceipt = useCallback(async (receipt: Receipt) => {
