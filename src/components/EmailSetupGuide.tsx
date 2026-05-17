@@ -1,53 +1,73 @@
 /**
- * EmailSetupGuide — onboarding for the email-ingestion channel.
+ * EmailSetupGuide — onboarding for the PUSH (auto-forward) email channel.
  *
- * Explains, in plain language, the one-time setup the user must do so their
- * card provider emails a transaction alert that we can scan automatically.
+ * The user gets a unique address `sync+<user_id>@<domain>` and sets a Gmail
+ * filter to auto-forward bank/card alert emails to it. Our inbound webhook
+ * parses them. No Gmail OAuth, no passwords, no polling.
  * Pure presentational component; styling matches BankConnectionModal.
  */
+import { useState } from 'react';
+
+// Domain where the inbound-email webhook receives mail (MX → provider).
+const INBOUND_DOMAIN =
+  (import.meta.env.VITE_INBOUND_EMAIL_DOMAIN as string | undefined) ??
+  'inbound.smartreceipt.app';
+
+const BANK_SENDERS = 'max.co.il, cal-online.co.il, isracard.co.il, leumi-card.co.il, chase.com';
 
 interface Step {
   n: number;
+  emoji: string;
   title: string;
   detail: string;
-  emoji: string;
 }
 
 const STEPS: Step[] = [
   {
     n: 1,
-    emoji: '📧',
-    title: 'Connect your Gmail account',
-    detail:
-      'A secure, read-only Google sign-in. We only ever look at bank/card alert emails — nothing else in your inbox.',
+    emoji: '📋',
+    title: 'Copy your unique sync address',
+    detail: 'It is tied to your account — emails sent here become your transactions.',
   },
   {
     n: 2,
-    emoji: '🏦',
-    title: 'Open your card or bank app',
+    emoji: '⚙️',
+    title: 'Create a Gmail filter',
     detail:
-      'Log into your provider — Max, Cal, Isracard, Chase, or your bank.',
+      'Gmail → Settings → Filters and Blocked Addresses → "Create a new filter".',
   },
   {
     n: 3,
-    emoji: '🔔',
-    title: 'Turn on transaction email alerts',
+    emoji: '↪️',
+    title: 'Forward bank alerts to it',
     detail:
-      'Go to Settings → Alerts / Notifications and enable "Email notification for every transaction". That email is what we read.',
+      `In the filter's "From" field add your bank/card senders (${BANK_SENDERS}), then choose "Forward it to" and add your sync address. Confirm the forwarding email Gmail sends.`,
   },
 ];
 
 interface Props {
-  /** Kicks off the Gmail OAuth consent flow (gmail.readonly). */
-  onConnectGmail: () => void;
+  /** Current signed-in user id — forms the unique forwarding address. */
+  userId: string;
+  /** Fired after the address is copied to the clipboard. */
+  onCopied?: () => void;
   onClose: () => void;
-  /** True once a refresh token is stored server-side for this user. */
-  connected?: boolean;
-  /** Connected Gmail address, shown for reassurance. */
-  email?: string | null;
 }
 
-export default function EmailSetupGuide({ onConnectGmail, onClose, connected, email }: Props) {
+export default function EmailSetupGuide({ userId, onCopied, onClose }: Props) {
+  const address = `sync+${userId}@${INBOUND_DOMAIN}`;
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+    } catch {
+      /* clipboard may be blocked; the address is still visible to copy manually */
+    }
+    setCopied(true);
+    onCopied?.();
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
@@ -74,10 +94,28 @@ export default function EmailSetupGuide({ onConnectGmail, onClose, connected, em
           <div className="rounded-xl bg-blue-50 dark:bg-blue-900/30 px-3 py-3 flex gap-2">
             <span className="text-lg leading-none shrink-0">🔒</span>
             <p className="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">
-              We scan your secure bank <strong>email alerts</strong> to log
-              expenses automatically — <strong>no bank passwords</strong>, and
-              read-only access to just those alert emails.
+              You forward only your bank <strong>alert emails</strong> to a
+              private address — <strong>no Gmail sign-in, no passwords</strong>,
+              and we never touch the rest of your inbox.
             </p>
+          </div>
+
+          {/* The unique address */}
+          <div>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              Your sync address
+            </p>
+            <div className="flex items-stretch gap-2">
+              <code className="flex-1 min-w-0 truncate text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-lg px-3 py-2.5 select-all">
+                {address}
+              </code>
+              <button
+                onClick={copy}
+                className="shrink-0 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg px-3 transition-colors"
+              >
+                {copied ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
           </div>
 
           {/* Steps */}
@@ -100,39 +138,25 @@ export default function EmailSetupGuide({ onConnectGmail, onClose, connected, em
           </ol>
 
           <p className="text-[11px] text-gray-400 dark:text-gray-500 leading-relaxed">
-            Already get these alerts? Just connect Gmail — past and future
-            alerts will be picked up automatically. Receipt scanning keeps
-            working exactly as before.
+            Once set up, every new bank alert is logged automatically within
+            seconds — nothing to open or sync. Receipt scanning keeps working
+            exactly as before.
           </p>
         </div>
 
         {/* Footer */}
         <div className="px-4 pb-4 pt-3 border-t border-gray-100 dark:border-gray-700 shrink-0 space-y-2">
-          {connected ? (
-            <>
-              <div className="w-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-sm font-semibold rounded-xl py-2.5 flex items-center justify-center gap-2">
-                <span>✓</span> Connected{email ? ` — ${email}` : ''}
-              </div>
-              <button
-                onClick={onConnectGmail}
-                className="w-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-xs py-1.5 transition-colors"
-              >
-                Reconnect a different account
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={onConnectGmail}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl py-2.5 transition-colors flex items-center justify-center gap-2"
-            >
-              <span>📧</span> Connect Gmail
-            </button>
-          )}
+          <button
+            onClick={copy}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl py-2.5 transition-colors flex items-center justify-center gap-2"
+          >
+            <span>📋</span> {copied ? 'Copied!' : 'Copy sync address'}
+          </button>
           <button
             onClick={onClose}
             className="w-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-xs py-1.5 transition-colors"
           >
-            {connected ? 'Done' : 'Maybe later'}
+            Done
           </button>
         </div>
       </div>

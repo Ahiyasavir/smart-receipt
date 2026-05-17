@@ -18,15 +18,6 @@ import ItemList from './components/ItemList';
 import BudgetModal from './components/BudgetModal';
 import BankConnectionModal from './components/BankConnectionModal';
 import EmailSetupGuide from './components/EmailSetupGuide';
-import { supabase } from './utils/supabase';
-import { useGmailConnection } from './hooks/useGmailConnection';
-import {
-  startGmailOAuth,
-  readGmailOAuthCallback,
-  exchangeGmailCode,
-  clearGmailOAuthState,
-  isGoogleOAuthConfigured,
-} from './utils/googleOAuth';
 import { useBankConnections } from './hooks/useBankConnections';
 import { useMerchantOverrides } from './hooks/useMerchantOverrides';
 import { merchantKey } from './utils/merchantNormalizer';
@@ -112,30 +103,8 @@ export default function App() {
 
   useEffect(() => { setConfirmDelete(false); }, [selectedReceipt]);
 
-  // Complete the Google OAuth redirect when we land back on the callback URL.
-  useEffect(() => {
-    const cb = readGmailOAuthCallback();
-    if (!cb) return;
-    (async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        const accessToken = data.session?.access_token;
-        if (!accessToken) { setToast('Sign in first, then connect Gmail'); clearGmailOAuthState(); return; }
-        await exchangeGmailCode(cb, accessToken);
-        clearGmailOAuthState();
-        await refreshGmail();           // reflect connected: true
-        setToast('Gmail connected — scanning recent transaction alerts');
-      } catch (err) {
-        clearGmailOAuthState();
-        setToast(`Gmail connection failed: ${(err as Error).message}`);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const { receipts, loading: receiptsLoading, addReceipt, updateItem, updateReceipt, removeReceipt } = useReceipts(userId);
   const { budgets, updateBudgets, emailDigest, setEmailDigestPref } = useBudgets(userId);
-  const { connected: gmailConnected, email: gmailEmail, refresh: refreshGmail } = useGmailConnection(userId);
   const { connections: bankConnections, upsertConnection } = useBankConnections(userId);
   const { overrides: merchantOverrides, saveOverride } = useMerchantOverrides(userId);
   const spendingAlerts = useSpendingAlerts(receipts, budgets);
@@ -868,19 +837,8 @@ export default function App() {
       )}
       {emailGuideOpen && (
         <EmailSetupGuide
-          connected={gmailConnected}
-          email={gmailEmail}
-          onConnectGmail={async () => {
-            if (!isGoogleOAuthConfigured()) {
-              setToast('Gmail sign-in not configured (VITE_GOOGLE_CLIENT_ID missing)');
-              return;
-            }
-            try {
-              await startGmailOAuth(); // redirects to Google
-            } catch (err) {
-              setToast(`Could not start Gmail sign-in: ${(err as Error).message}`);
-            }
-          }}
+          userId={userId}
+          onCopied={() => setToast('Sync address copied')}
           onClose={() => setEmailGuideOpen(false)}
         />
       )}
