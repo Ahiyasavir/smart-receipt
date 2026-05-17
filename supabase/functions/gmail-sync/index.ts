@@ -138,7 +138,11 @@ const BANK_SENDERS = ['alerts@cal-online.co.il','max.co.il','isracard.co.il','le
 const TEST_SENDERS = (Deno.env.get('GMAIL_TEST_SENDER') ?? '')
   .split(',').map((s) => s.trim()).filter(Boolean);
 const ALL_SENDERS = [...BANK_SENDERS, ...TEST_SENDERS];
-const ALERT_QUERY = `is:unread (${ALL_SENDERS.map((s) => `from:${s}`).join(' OR ')})`;
+// No `is:unread`: incremental fetch is driven by the `after:<last_synced_at>`
+// cursor, and duplicates are impossible thanks to the deterministic djb2
+// external_id + ignoreDuplicates upsert. Filtering on read-state would miss
+// alerts the user opened before the sync ran.
+const ALERT_QUERY = `(${ALL_SENDERS.map((s) => `from:${s}`).join(' OR ')})`;
 
 async function accessTokenFor(refreshToken: string): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -168,7 +172,9 @@ function decodeBody(payload: any): string {
 async function syncUser(userId: string) {
   const { data: conn } = await admin.from('gmail_connections')
     .select('refresh_token, last_synced_at, status').eq('user_id', userId).maybeSingle();
-  if (!conn || conn.status !== 'connected') return { userId, skipped: 'not_connected' };
+  // 'error' is retried (self-healing) — only 'revoked'/missing is terminal.
+  if (!conn || (conn.status !== 'connected' && conn.status !== 'error'))
+    return { userId, skipped: 'not_connected' };
 
   const runStartedIso = new Date().toISOString();
   try {
@@ -206,11 +212,8 @@ async function syncUser(userId: string) {
         total: alert.amount, currency: alert.currency, source: 'bank-sync',
         external_id: buildExternalId(ref.id, alert),
       });
-      // best-effort mark read (cursor is the real guard)
-      fetch(`${api}/messages/${ref.id}/modify`, {
-        method: 'POST', headers: { ...auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ removeLabelIds: ['UNREAD'] }),
-      }).catch(() => {});
+      // No mark-as-read: we never mutate the user's mailbox. Dedup is handled
+      // entirely by the cursor + deterministic external_id.
     }
 
     let inserted = 0;
@@ -239,7 +242,8 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); } catch { /* cron: no body */ }
   try {
     if (body.userId) return json(await syncUser(body.userId));
-    const { data: conns } = await admin.from('gmail_connections').select('user_id').eq('status', 'connected');
+    const { data: conns } = await admin.from('gmail_connections')
+      .select('user_id').in('status', ['connected', 'error']);
     const results = [];
     for (const c of conns ?? []) results.push(await syncUser(c.user_id)); // failures isolated in syncUser
     return json({ ran: results.length, results });
