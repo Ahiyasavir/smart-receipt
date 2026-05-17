@@ -132,7 +132,13 @@ function buildExternalId(messageId: string, a: ParsedAlert): string {
 
 // ── Gmail REST client ─────────────────────────────────────────────────────────
 const BANK_SENDERS = ['alerts@cal-online.co.il','max.co.il','isracard.co.il','leumi-card.co.il','chase.com'];
-const ALERT_QUERY = `is:unread (${BANK_SENDERS.map((s) => `from:${s}`).join(' OR ')})`;
+// Optional, reversible test hook: set GMAIL_TEST_SENDER to a comma-separated
+// list of extra allowed sender addresses (e.g. your own email) to validate the
+// pipeline end-to-end without a real card charge. Unset it after testing.
+const TEST_SENDERS = (Deno.env.get('GMAIL_TEST_SENDER') ?? '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+const ALL_SENDERS = [...BANK_SENDERS, ...TEST_SENDERS];
+const ALERT_QUERY = `is:unread (${ALL_SENDERS.map((s) => `from:${s}`).join(' OR ')})`;
 
 async function accessTokenFor(refreshToken: string): Promise<string> {
   const res = await fetch('https://oauth2.googleapis.com/token', {
