@@ -15,6 +15,7 @@ interface Props {
   onGoToScan?: () => void;
   onOpenBudgets?: () => void;
   onOpenWrapped?: () => void;
+  onOpenBankConnect?: () => void;
 }
 
 const PERIOD_LABELS: { id: Period; label: string }[] = [
@@ -191,7 +192,7 @@ function CustomTooltip({ active, payload, label, symbol }: { active?: boolean; p
   );
 }
 
-export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets, onOpenWrapped }: Props) {
+export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets, onOpenWrapped, onOpenBankConnect }: Props) {
   const [period,    setPeriod]    = useState<Period>('month');
   const [chartView, setChartView] = useState<'bar' | 'pie' | 'trend'>('bar');
   const { fmt, symbol } = useCurrency();
@@ -215,19 +216,31 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
   const insights      = useMemo(() => buildInsights(filtered, fmt), [filtered, fmt]);
   const subscriptions = useMemo(() => buildSubscriptions(receipts), [receipts]);
 
+  // Data-source breakdown (scanned vs bank)
+  const scannedCount  = receipts.filter((r) => !r.source || r.source === 'scan').length;
+  const bankCount     = receipts.filter((r) => r.source === 'bank-sync' || r.source === 'bank-import').length;
+  const hasBankData   = bankCount > 0;
+
   if (receipts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
         <div className="text-6xl">🧾</div>
         <div>
           <p className="font-semibold text-gray-700 dark:text-gray-200 text-lg">No receipts yet</p>
-          <p className="text-sm text-gray-400 mt-1">Scan your first receipt to see spending insights</p>
+          <p className="text-sm text-gray-400 mt-1">Scan a receipt or connect your bank to see spending insights</p>
         </div>
-        {onGoToScan && (
-          <button onClick={onGoToScan} className="mt-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-semibold text-sm shadow-sm hover:bg-blue-700 transition-colors">
-            Scan a Receipt
-          </button>
-        )}
+        <div className="flex gap-2 mt-2">
+          {onGoToScan && (
+            <button onClick={onGoToScan} className="bg-blue-600 text-white px-5 py-2.5 rounded-2xl font-semibold text-sm shadow-sm hover:bg-blue-700 transition-colors">
+              Scan Receipt
+            </button>
+          )}
+          {onOpenBankConnect && (
+            <button onClick={onOpenBankConnect} className="bg-indigo-600 text-white px-5 py-2.5 rounded-2xl font-semibold text-sm shadow-sm hover:bg-indigo-700 transition-colors">
+              🏦 Connect Bank
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -245,6 +258,54 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
           </button>
         ))}
       </div>
+
+      {/* Data source summary — shown when bank data is present */}
+      {hasBankData && (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Data Sources</h3>
+            {onOpenBankConnect && (
+              <button onClick={onOpenBankConnect} className="text-xs text-blue-600 font-medium hover:underline">
+                + Add bank
+              </button>
+            )}
+          </div>
+          <div className="px-4 py-3 flex gap-4">
+            {scannedCount > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{scannedCount} scanned</p>
+                  <p className="text-[10px] text-gray-400">Receipt OCR</p>
+                </div>
+              </div>
+            )}
+            {bankCount > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{bankCount} from bank</p>
+                  <p className="text-[10px] text-gray-400">Auto-categorised</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!hasBankData && onOpenBankConnect && (
+        <button
+          onClick={onOpenBankConnect}
+          className="w-full flex items-center gap-3 bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow text-left"
+        >
+          <span className="text-2xl">🏦</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-800 dark:text-white">Connect your bank</p>
+            <p className="text-xs text-gray-400">Import transactions automatically — no manual scanning needed</p>
+          </div>
+          <span className="text-gray-300 dark:text-gray-600 text-lg shrink-0">›</span>
+        </button>
+      )}
 
       {filtered.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-10 text-center shadow-sm">

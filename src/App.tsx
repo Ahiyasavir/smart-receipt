@@ -17,6 +17,10 @@ import Dashboard from './components/Dashboard';
 import ItemList from './components/ItemList';
 import BudgetModal from './components/BudgetModal';
 import BankImportModal from './components/BankImportModal';
+import BankConnectionModal from './components/BankConnectionModal';
+import { useBankConnections } from './hooks/useBankConnections';
+import { useMerchantOverrides } from './hooks/useMerchantOverrides';
+import { merchantKey } from './utils/merchantNormalizer';
 import { exportReceiptsCsv } from './utils/csvExport';
 import { CATEGORY_META } from './utils/categoryClassifier';
 
@@ -67,7 +71,8 @@ export default function App() {
   const [historySort,     setHistorySort]     = useState<SortKey>('date-desc');
   const [toast,           setToast]           = useState<string | null>(null);
   const [budgetOpen,      setBudgetOpen]      = useState(false);
-  const [bankImportOpen,  setBankImportOpen]  = useState(false);
+  const [bankImportOpen,    setBankImportOpen]    = useState(false);
+  const [bankConnectOpen,   setBankConnectOpen]   = useState(false);
   const [wrappedOpen,     setWrappedOpen]     = useState(false);
   const [darkMode,        setDarkMode]        = useState(() => localStorage.getItem('smartreceipt_dark') === '1');
   const [showOnboarding,  setShowOnboarding]  = useState(() => !localStorage.getItem('smartreceipt_onboarded'));
@@ -100,6 +105,8 @@ export default function App() {
 
   const { receipts, loading: receiptsLoading, addReceipt, updateItem, updateReceipt, removeReceipt } = useReceipts(userId);
   const { budgets, updateBudgets, emailDigest, setEmailDigestPref } = useBudgets(userId);
+  const { connections: bankConnections, upsertConnection } = useBankConnections(userId);
+  const { overrides: merchantOverrides, saveOverride } = useMerchantOverrides(userId);
   const spendingAlerts = useSpendingAlerts(receipts, budgets);
 
   // Check notifications whenever receipts or budgets update
@@ -150,8 +157,18 @@ export default function App() {
     }
   };
 
-  const handleBankImport = async (imported: Receipt[]) => {
+  const handleBankImport = async (imported: Receipt[], bankId?: string, bankName?: string) => {
     for (const r of imported) await addReceipt(r);
+    if (bankId && bankName) {
+      const existing = bankConnections.find((c) => c.bankId === bankId);
+      await upsertConnection({
+        bankId,
+        bankName,
+        status:           'csv_imported',
+        lastSync:         new Date().toISOString(),
+        transactionCount: (existing?.transactionCount ?? 0) + imported.length,
+      });
+    }
     setToast(`Imported ${imported.length} transactions`);
   };
 
@@ -290,6 +307,7 @@ export default function App() {
             onGoToScan={() => switchTab('scan')}
             onOpenBudgets={() => setBudgetOpen(true)}
             onOpenWrapped={() => setWrappedOpen(true)}
+            onOpenBankConnect={() => setBankConnectOpen(true)}
           />
         )}
 
@@ -310,8 +328,8 @@ export default function App() {
                     ⬇ CSV
                   </button>
                 )}
-                <button onClick={() => setBankImportOpen(true)} className="text-xs text-blue-500 hover:text-blue-700 font-medium" title="Import bank CSV">
-                  ⬆ Bank
+                <button onClick={() => setBankConnectOpen(true)} className="text-xs text-blue-500 hover:text-blue-700 font-medium" title="Connect bank">
+                  🏦 Bank
                 </button>
               </div>
             </div>
@@ -474,7 +492,13 @@ export default function App() {
               <p className="text-3xl font-bold mt-1">{fmt(selectedReceipt.total)}</p>
             </div>
 
-            <ItemList items={selectedReceipt.items} onItemChange={handleItemChange} editable />
+            <ItemList items={selectedReceipt.items} onItemChange={(item) => {
+              // Persist category correction as merchant override for bank transactions
+              if (selectedReceipt.source === 'bank-sync' || selectedReceipt.source === 'bank-import') {
+                saveOverride(merchantKey(selectedReceipt.storeName), item.category);
+              }
+              handleItemChange(item);
+            }} editable />
 
             {/* Notes */}
             <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm p-4`}>
@@ -721,13 +745,20 @@ export default function App() {
                     <p className="text-xs text-gray-400">Download {receipts.length} receipt{receipts.length !== 1 ? 's' : ''} as spreadsheet</p>
                   </div>
                 </button>
-                <button onClick={() => { switchTab('history'); setBankImportOpen(true); }}
+                <button onClick={() => setBankConnectOpen(true)}
                   className={`w-full flex items-center gap-3 ${dm ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} rounded-xl p-2.5 transition-colors text-left`}>
-                  <span className="text-xl">⬆️</span>
+                  <span className="text-xl">🏦</span>
                   <div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-white">Import bank CSV</p>
-                    <p className="text-xs text-gray-400">Upload bank statement to add transactions</p>
+                    <p className="text-sm font-medium text-gray-800 dark:text-white">Connect bank / Import CSV</p>
+                    <p className="text-xs text-gray-400">
+                      {bankConnections.length > 0
+                        ? `${bankConnections.length} bank${bankConnections.length !== 1 ? 's' : ''} connected`
+                        : 'Upload bank statement or set up auto sync'}
+                    </p>
                   </div>
+                  {bankConnections.length > 0 && (
+                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-full font-semibold shrink-0">✓</span>
+                  )}
                 </button>
               </div>
             </div>
@@ -778,7 +809,15 @@ export default function App() {
 
       {/* ── Modals ──────────────────────────────────────────────── */}
       {budgetOpen && <BudgetModal budgets={budgets} onSave={updateBudgets} onClose={() => setBudgetOpen(false)} />}
-      {bankImportOpen && <BankImportModal onImport={handleBankImport} onClose={() => setBankImportOpen(false)} />}
+      {bankImportOpen && <BankImportModal onImport={(r) => handleBankImport(r)} onClose={() => setBankImportOpen(false)} />}
+      {bankConnectOpen && (
+        <BankConnectionModal
+          connections={bankConnections}
+          overrides={merchantOverrides}
+          onImport={(receipts, bankId, bankName) => handleBankImport(receipts, bankId, bankName)}
+          onClose={() => setBankConnectOpen(false)}
+        />
+      )}
       {wrappedOpen && <SpendingWrapped receipts={receipts} onClose={() => setWrappedOpen(false)} />}
 
       {/* ── Toast ───────────────────────────────────────────────── */}
