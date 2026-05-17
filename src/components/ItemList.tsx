@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ReceiptItem } from '../types';
 import { CATEGORY_META } from '../utils/categoryClassifier';
 import { UNCERTAIN_THRESHOLD } from '../utils/receiptInterpreter';
+import { useCurrency } from '../contexts/CurrencyContext';
 import ManualEditModal from './ManualEditModal';
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 
 export default function ItemList({ items, onItemChange, editable = false }: Props) {
   const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
+  const { fmt } = useCurrency();
 
   const handleSave = (updated: ReceiptItem) => {
     onItemChange?.(updated);
@@ -71,7 +73,7 @@ export default function ItemList({ items, onItemChange, editable = false }: Prop
                 </div>
 
                 <span className="font-semibold text-gray-900 text-sm shrink-0">
-                  ${item.amount.toFixed(2)}
+                  {fmt(item.amount)}
                 </span>
 
                 {editable && (
