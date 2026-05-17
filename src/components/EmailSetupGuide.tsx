@@ -41,9 +41,13 @@ interface Props {
   /** Kicks off the Gmail OAuth consent flow (gmail.readonly). */
   onConnectGmail: () => void;
   onClose: () => void;
+  /** True once a refresh token is stored server-side for this user. */
+  connected?: boolean;
+  /** Connected Gmail address, shown for reassurance. */
+  email?: string | null;
 }
 
-export default function EmailSetupGuide({ onConnectGmail, onClose }: Props) {
+export default function EmailSetupGuide({ onConnectGmail, onClose, connected, email }: Props) {
   return (
     <div
       className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
@@ -104,17 +108,31 @@ export default function EmailSetupGuide({ onConnectGmail, onClose }: Props) {
 
         {/* Footer */}
         <div className="px-4 pb-4 pt-3 border-t border-gray-100 dark:border-gray-700 shrink-0 space-y-2">
-          <button
-            onClick={onConnectGmail}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl py-2.5 transition-colors flex items-center justify-center gap-2"
-          >
-            <span>📧</span> Connect Gmail
-          </button>
+          {connected ? (
+            <>
+              <div className="w-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-sm font-semibold rounded-xl py-2.5 flex items-center justify-center gap-2">
+                <span>✓</span> Connected{email ? ` — ${email}` : ''}
+              </div>
+              <button
+                onClick={onConnectGmail}
+                className="w-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-xs py-1.5 transition-colors"
+              >
+                Reconnect a different account
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={onConnectGmail}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl py-2.5 transition-colors flex items-center justify-center gap-2"
+            >
+              <span>📧</span> Connect Gmail
+            </button>
+          )}
           <button
             onClick={onClose}
             className="w-full text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-xs py-1.5 transition-colors"
           >
-            Maybe later
+            {connected ? 'Done' : 'Maybe later'}
           </button>
         </div>
       </div>
