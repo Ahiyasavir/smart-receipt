@@ -33,10 +33,24 @@ jobs:
           PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
         run: npm install
 
+      # GitHub evaluates step-level `if:` before env injection, so
+      # `if: secrets.X != ''` is unreliable. Inject the secrets here and decide
+      # in bash instead — missing config degrades gracefully (job stays green).
+      - name: Check Supabase secrets
+        id: secrets-check
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️  Supabase secrets not configured — bank sync skipped (this is not a failure)."
+          fi
+
       - name: Run bank sync
-        # Skip entirely when Supabase secrets are not configured.
-        # GitHub sets unset secrets to an empty string, so we check != ''.
-        if: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_SERVICE_ROLE_KEY != '' }}
+        if: steps.secrets-check.outputs.available == 'true'
         working-directory: scraper
         env:
           PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser

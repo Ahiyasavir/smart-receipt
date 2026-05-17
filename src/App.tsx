@@ -16,7 +16,6 @@ import ReceiptUploader from './components/ReceiptUploader';
 import Dashboard from './components/Dashboard';
 import ItemList from './components/ItemList';
 import BudgetModal from './components/BudgetModal';
-import BankImportModal from './components/BankImportModal';
 import BankConnectionModal from './components/BankConnectionModal';
 import { useBankConnections } from './hooks/useBankConnections';
 import { useMerchantOverrides } from './hooks/useMerchantOverrides';
@@ -71,7 +70,6 @@ export default function App() {
   const [historySort,     setHistorySort]     = useState<SortKey>('date-desc');
   const [toast,           setToast]           = useState<string | null>(null);
   const [budgetOpen,      setBudgetOpen]      = useState(false);
-  const [bankImportOpen,    setBankImportOpen]    = useState(false);
   const [bankConnectOpen,   setBankConnectOpen]   = useState(false);
   const [wrappedOpen,     setWrappedOpen]     = useState(false);
   const [darkMode,        setDarkMode]        = useState(() => localStorage.getItem('smartreceipt_dark') === '1');
@@ -158,7 +156,11 @@ export default function App() {
   };
 
   const handleBankImport = async (imported: Receipt[], bankId?: string, bankName?: string) => {
-    for (const r of imported) await addReceipt(r);
+    let added = 0;
+    for (const r of imported) {
+      if (await addReceipt(r)) added++;
+    }
+    const duplicates = imported.length - added;
     if (bankId && bankName) {
       const existing = bankConnections.find((c) => c.bankId === bankId);
       await upsertConnection({
@@ -166,10 +168,16 @@ export default function App() {
         bankName,
         status:           'csv_imported',
         lastSync:         new Date().toISOString(),
-        transactionCount: (existing?.transactionCount ?? 0) + imported.length,
+        transactionCount: (existing?.transactionCount ?? 0) + added,
       });
     }
-    setToast(`Imported ${imported.length} transactions`);
+    setToast(
+      added === 0
+        ? `No new transactions — all ${imported.length} already imported`
+        : duplicates > 0
+          ? `Imported ${added} new (${duplicates} already existed)`
+          : `Imported ${added} transactions`,
+    );
   };
 
   // ── Filtered + sorted receipts ────────────────────────────────────────────
@@ -809,7 +817,6 @@ export default function App() {
 
       {/* ── Modals ──────────────────────────────────────────────── */}
       {budgetOpen && <BudgetModal budgets={budgets} onSave={updateBudgets} onClose={() => setBudgetOpen(false)} />}
-      {bankImportOpen && <BankImportModal onImport={(r) => handleBankImport(r)} onClose={() => setBankImportOpen(false)} />}
       {bankConnectOpen && (
         <BankConnectionModal
           connections={bankConnections}

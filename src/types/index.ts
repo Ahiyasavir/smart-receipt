@@ -18,6 +18,7 @@ export interface Receipt {
   imageDataUrl?: string; // not persisted to DB
   source?: 'scan' | 'bank-sync' | 'bank-import';
   externalId?: string;
+  currency?: string;  // ISO 4217 code of the original transaction (e.g. 'ILS', 'USD')
   returnDeadline?: string; // ISO date — the last day to return items
 }
 

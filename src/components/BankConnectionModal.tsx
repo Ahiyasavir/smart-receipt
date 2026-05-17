@@ -116,8 +116,13 @@ function parseBankCsv(
 
     const dateStr = fields[dateIdx] ?? '';
     const rawDesc = fields[descIdx] ?? '';
-    const amtStr  = (fields[amtIdx] ?? '').replace(/[$,₪€£]/g, '');
+    const amtRaw  = fields[amtIdx] ?? '';
+    const amtStr  = amtRaw.replace(/[$,₪€£]/g, '');
     const amount  = Math.abs(parseFloat(amtStr));
+    const currency = amtRaw.includes('$') ? 'USD'
+                   : amtRaw.includes('€') ? 'EUR'
+                   : amtRaw.includes('£') ? 'GBP'
+                   : 'ILS';
 
     if (!dateStr || !rawDesc || isNaN(amount) || amount <= 0) continue;
 
@@ -143,6 +148,7 @@ function parseBankCsv(
       rawText:    lines[i],
       items:      [item],
       total:      amount,
+      currency,
       source:     'bank-import',
       externalId: `${bankId}_csv_${key}_${date.toISOString().split('T')[0]}_${amount}`,
     });
