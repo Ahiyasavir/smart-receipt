@@ -6,6 +6,12 @@ import { useBudgets } from './hooks/useBudgets';
 import AuthScreen from './components/AuthScreen';
 import Onboarding from './components/Onboarding';
 import SpendingWrapped from './components/SpendingWrapped';
+import { useCurrency } from './contexts/CurrencyContext';
+import { CURRENCIES, CurrencyCode } from './utils/currency';
+import {
+  requestNotificationPermission, notificationsSupported, notificationsGranted,
+  checkReturnDeadlines, checkBudgetAlerts,
+} from './utils/notifications';
 import ReceiptUploader from './components/ReceiptUploader';
 import Dashboard from './components/Dashboard';
 import ItemList from './components/ItemList';
@@ -50,6 +56,7 @@ function useSpendingAlerts(
 
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { fmt, symbol, currency, setCurrency } = useCurrency();
   const userId = user?.id ?? '';
 
   const [tab,             setTab]             = useState<AppTab>('scan');
@@ -91,8 +98,15 @@ export default function App() {
 
   useEffect(() => { setConfirmDelete(false); }, [selectedReceipt]);
 
+  // Check notifications whenever receipts or budgets update
+  useEffect(() => {
+    if (!notificationsGranted() || receiptsLoading) return;
+    checkReturnDeadlines(receipts);
+    checkBudgetAlerts(receipts, budgets, symbol);
+  }, [receipts, budgets, symbol, receiptsLoading]);
+
   const { receipts, loading: receiptsLoading, addReceipt, updateItem, updateReceipt, removeReceipt } = useReceipts(userId);
-  const { budgets, updateBudgets } = useBudgets(userId);
+  const { budgets, updateBudgets, emailDigest, setEmailDigestPref } = useBudgets(userId);
   const spendingAlerts = useSpendingAlerts(receipts, budgets);
 
   const haptic = (ms = 30) => navigator.vibrate?.(ms);
@@ -124,9 +138,9 @@ export default function App() {
     const text = [
       `🧾 ${receipt.storeName}`,
       `Date: ${new Date(receipt.date).toLocaleDateString()}`,
-      `Total: $${receipt.total.toFixed(2)}`,
+      `Total: ${fmt(receipt.total)}`,
       '',
-      ...receipt.items.map((i) => `• ${i.name}: $${i.amount.toFixed(2)}`),
+      ...receipt.items.map((i) => `• ${i.name}: ${fmt(i.amount)}`),
     ].join('\n');
     if (navigator.share) {
       await navigator.share({ title: `Receipt — ${receipt.storeName}`, text });
@@ -245,8 +259,8 @@ export default function App() {
               <span>
                 <strong>{a.label}</strong>:&nbsp;
                 {a.spent > a.budget
-                  ? `over budget by $${(a.spent - a.budget).toFixed(2)}`
-                  : `${Math.round((a.spent / a.budget) * 100)}% of $${a.budget.toFixed(0)} monthly budget`}
+                  ? `over budget by ${fmt(a.spent - a.budget)}`
+                  : `${Math.round((a.spent / a.budget) * 100)}% of ${symbol}${Math.round(a.budget)} monthly budget`}
               </span>
             </div>
           ))}
@@ -289,7 +303,7 @@ export default function App() {
               </h2>
               <div className="flex items-center gap-2">
                 {receipts.length > 0 && (
-                  <span className="text-xs text-gray-400">{receipts.length} · ${historyTotal.toFixed(2)}</span>
+                  <span className="text-xs text-gray-400">{receipts.length} · {fmt(historyTotal)}</span>
                 )}
                 {receipts.length > 0 && (
                   <button onClick={() => exportReceiptsCsv(receipts)} className="text-xs text-blue-500 hover:text-blue-700 font-medium" title="Export all to CSV">
@@ -434,7 +448,7 @@ export default function App() {
                     )}
                   </div>
                   <p className="text-lg font-bold text-blue-600 ml-3 shrink-0">
-                    ${r.total.toFixed(2)}
+                    {fmt(r.total)}
                   </p>
                 </div>
               </button>
@@ -457,7 +471,7 @@ export default function App() {
                 )}
               </div>
               <p className="text-sm opacity-60">{new Date(selectedReceipt.date).toLocaleString()}</p>
-              <p className="text-3xl font-bold mt-1">${selectedReceipt.total.toFixed(2)}</p>
+              <p className="text-3xl font-bold mt-1">{fmt(selectedReceipt.total)}</p>
             </div>
 
             <ItemList items={selectedReceipt.items} onItemChange={handleItemChange} editable />
@@ -609,6 +623,87 @@ export default function App() {
                 >
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${darkMode ? 'translate-x-5' : 'translate-x-0'}`} />
                 </button>
+              </div>
+            </div>
+
+            {/* Notifications */}
+            {notificationsSupported() && (
+              <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                  <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Notifications</h3>
+                </div>
+                <div className="px-4 py-3">
+                  {notificationsGranted() ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🔔</span>
+                      <div>
+                        <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Notifications enabled</p>
+                        <p className="text-xs text-gray-400">You'll be alerted about budget limits and return deadlines</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        Get alerted when you're near a budget limit or a return window is expiring.
+                      </p>
+                      <button onClick={requestNotificationPermission}
+                        className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">
+                        🔔 Enable Notifications
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Weekly email digest */}
+            <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Weekly Email Digest</h3>
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between">
+                <div className="flex-1 pr-4">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white">Spending summary email</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Every Monday — your top categories, biggest purchase, and budget status</p>
+                </div>
+                <button
+                  onClick={() => setEmailDigestPref(!emailDigest)}
+                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${emailDigest ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
+                  aria-label="Toggle weekly email digest"
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${emailDigest ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+              {emailDigest && (
+                <div className="px-4 pb-3">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">✓ You'll receive a weekly digest at {user.email}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Currency */}
+            <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
+              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Currency</h3>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-xs text-gray-400 mb-3">All amounts are displayed in your chosen currency</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {CURRENCIES.map((c) => (
+                    <button key={c.code} onClick={() => setCurrency(c.code as CurrencyCode)}
+                      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors ${
+                        currency === c.code
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                          : dm ? 'border-gray-600 text-gray-300 hover:border-gray-500' : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                      }`}>
+                      <span className="text-lg">{c.flag}</span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold">{c.symbol} {c.code}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{c.name}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

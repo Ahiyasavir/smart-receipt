@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { Receipt, Category, CategorySummary, UserBudgets } from '../types';
 import { CATEGORY_META } from '../utils/categoryClassifier';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 type Period = 'week' | 'month' | 'all';
 
@@ -125,13 +126,13 @@ interface Insight {
   value: string;
 }
 
-function buildInsights(receipts: Receipt[]): Insight[] {
+function buildInsights(receipts: Receipt[], fmtFn: (n: number) => string): Insight[] {
   if (receipts.length === 0) return [];
   const insights: Insight[] = [];
 
   // Biggest single receipt
   const biggest = receipts.reduce((max, r) => r.total > max.total ? r : max, receipts[0]);
-  insights.push({ emoji: '🏆', label: 'Biggest purchase', value: `$${biggest.total.toFixed(2)} at ${biggest.storeName}` });
+  insights.push({ emoji: '🏆', label: 'Biggest purchase', value: `${fmtFn(biggest.total)} at ${biggest.storeName}` });
 
   // Most frequent store
   const storeCounts: Record<string, number> = {};
@@ -180,19 +181,20 @@ function buildWeeklyTrend(receipts: Receipt[]) {
   return weeks;
 }
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) => {
+function CustomTooltip({ active, payload, label, symbol }: { active?: boolean; payload?: { value: number }[]; label?: string; symbol: string }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-3 py-2 shadow-lg text-xs">
       <p className="text-gray-500 dark:text-gray-400">{label}</p>
-      <p className="font-bold text-gray-900 dark:text-white">${payload[0].value.toFixed(2)}</p>
+      <p className="font-bold text-gray-900 dark:text-white">{symbol}{payload[0].value.toFixed(2)}</p>
     </div>
   );
-};
+}
 
 export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets, onOpenWrapped }: Props) {
   const [period,    setPeriod]    = useState<Period>('month');
   const [chartView, setChartView] = useState<'bar' | 'pie' | 'trend'>('bar');
+  const { fmt, symbol } = useCurrency();
 
   const filtered     = useMemo(() => filterByPeriod(receipts, period), [receipts, period]);
   const lastMonth    = useMemo(() => filterLastMonth(receipts), [receipts]);
@@ -210,7 +212,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
   const dailyData     = useMemo(() => buildDailyData(receipts, period === 'week' ? 7 : period === 'month' ? 30 : 60), [receipts, period]);
   const weeklyData    = useMemo(() => buildWeeklyTrend(receipts), [receipts]);
   const pieData       = summaries.map((s) => ({ name: s.label, value: Math.round(s.total * 100) / 100, color: s.color, emoji: s.emoji }));
-  const insights      = useMemo(() => buildInsights(filtered), [filtered]);
+  const insights      = useMemo(() => buildInsights(filtered, fmt), [filtered, fmt]);
   const subscriptions = useMemo(() => buildSubscriptions(receipts), [receipts]);
 
   if (receipts.length === 0) {
@@ -398,8 +400,8 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                 <ResponsiveContainer width="100%" height={160}>
                   <BarChart data={dailyData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                     <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#9ca3af' }} interval={period === 'week' ? 0 : 5} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(59,130,246,0.08)' }} />
+                    <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${symbol}${v}`} />
+                    <Tooltip content={<CustomTooltip symbol={symbol} />} cursor={{ fill: 'rgba(59,130,246,0.08)' }} />
                     <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={24} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -409,8 +411,8 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                   <LineChart data={weeklyData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
                     <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${v}`} />
-                    <Tooltip content={<CustomTooltip />} />
+                    <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${symbol}${v}`} />
+                    <Tooltip content={<CustomTooltip symbol={symbol} />} />
                     <Line type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -422,7 +424,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                       <Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={2} dataKey="value">
                         {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                       </Pie>
-                      <Tooltip formatter={(v) => typeof v === 'number' ? `$${v.toFixed(2)}` : String(v)} />
+                      <Tooltip formatter={(v) => typeof v === 'number' ? `${fmt(v)}` : String(v)} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="flex-1 space-y-1.5 min-w-0">
@@ -487,8 +489,8 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                     {budget && (
                       <p className="text-xs text-gray-400">
                         {overBudget
-                          ? `$${(s.total - budget).toFixed(2)} over ${period === 'week' ? 'weekly' : 'monthly'} budget`
-                          : `$${(budget - s.total).toFixed(2)} remaining`}
+                          ? `${fmt(s.total - budget)} over ${period === 'week' ? 'weekly' : 'monthly'} budget`
+                          : `${fmt(budget - s.total)} remaining`}
                       </p>
                     )}
                   </li>
