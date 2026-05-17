@@ -18,6 +18,8 @@ import ItemList from './components/ItemList';
 import BudgetModal from './components/BudgetModal';
 import BankConnectionModal from './components/BankConnectionModal';
 import EmailSetupGuide from './components/EmailSetupGuide';
+import BankBadge from './components/BankBadge';
+import { SkeletonList } from './components/Skeleton';
 import { useBankConnections } from './hooks/useBankConnections';
 import { useMerchantOverrides } from './hooks/useMerchantOverrides';
 import { merchantKey } from './utils/merchantNormalizer';
@@ -391,25 +393,7 @@ export default function App() {
             </div>
 
             {/* Loading skeleton */}
-            {receiptsLoading && (
-              <div className="space-y-3">
-                {[1, 2, 3].map((n) => (
-                  <div key={n} className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-4 shadow-sm animate-pulse`}>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-2 flex-1">
-                        <div className={`h-4 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded w-2/5`} />
-                        <div className={`h-3 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded w-1/3`} />
-                        <div className="flex gap-1.5">
-                          <div className={`h-4 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded-full w-16`} />
-                          <div className={`h-4 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded-full w-14`} />
-                        </div>
-                      </div>
-                      <div className={`h-7 ${dm ? 'bg-gray-700' : 'bg-gray-200'} rounded w-14 ml-4`} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            {receiptsLoading && <SkeletonList count={4} />}
 
             {/* Empty states */}
             {!receiptsLoading && receipts.length === 0 && (
@@ -441,12 +425,7 @@ export default function App() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <p className={`font-semibold truncate max-w-[60%] ${dm ? 'text-white' : 'text-gray-800'}`}>{r.storeName}</p>
-                      {r.source === 'bank-sync' && (
-                        <span className="text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded-full shrink-0">🏦 Bank</span>
-                      )}
-                      {r.source === 'bank-import' && (
-                        <span className="text-[10px] font-semibold bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded-full shrink-0">📂 Import</span>
-                      )}
+                      <BankBadge source={r.source} />
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(r.date).toLocaleDateString()} · {r.items.length} item{r.items.length !== 1 ? 's' : ''}
@@ -494,9 +473,7 @@ export default function App() {
             <div className="bg-blue-600 text-white rounded-2xl p-4">
               <div className="flex items-center gap-2">
                 <p className="font-bold text-lg">{selectedReceipt.storeName}</p>
-                {selectedReceipt.source === 'bank-sync' && (
-                  <span className="text-[10px] font-semibold bg-white/20 px-2 py-0.5 rounded-full">🏦 Auto-synced</span>
-                )}
+                <BankBadge source={selectedReceipt.source} variant="header" />
               </div>
               <p className="text-sm opacity-60">{new Date(selectedReceipt.date).toLocaleString()}</p>
               <p className="text-3xl font-bold mt-1">{fmt(selectedReceipt.total)}</p>

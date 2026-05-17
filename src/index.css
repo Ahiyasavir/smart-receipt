@@ -16,3 +16,60 @@ body {
 .safe-area-inset-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/* ── Motion utilities (premium micro-interactions) ──────────────────────── */
+
+/* Toast entrance (was referenced but undefined) */
+@keyframes bounce-once {
+  0%   { transform: translateY(8px) scale(0.96); opacity: 0; }
+  60%  { transform: translateY(-2px) scale(1.02); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.animate-bounce-once { animation: bounce-once 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0%   { background-position: -468px 0; }
+  100% { background-position: 468px 0; }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.06);
+}
+.dark .skeleton { background: rgba(255, 255, 255, 0.08); }
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  animation: shimmer 1.25s infinite;
+}
+.dark .skeleton::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.07),
+    transparent
+  );
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
+  .animate-bounce-once { animation: none; }
+}
+
+/* Subtle "live" pulse for the bank-sync badge */
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.35); }
+  50%      { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0); }
+}
+.badge-sync-pulse { animation: badge-pulse 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .badge-sync-pulse { animation: none; }
+}
