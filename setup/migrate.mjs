@@ -16,10 +16,13 @@ const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || 'krtcjxkronmxribkccab';
 const PAT         = process.env.SUPABASE_ACCESS_TOKEN;
 
 if (!PAT) {
-  console.error('SUPABASE_ACCESS_TOKEN is required.');
-  console.error('Generate one at: https://supabase.com/dashboard/account/tokens');
-  console.error('Then add it as a GitHub secret named SUPABASE_ACCESS_TOKEN');
-  process.exit(1);
+  console.warn('⚠️  SUPABASE_ACCESS_TOKEN is not set — skipping migrations.');
+  console.warn('   To enable auto-migrations:');
+  console.warn('   1. Generate a token at https://supabase.com/dashboard/account/tokens');
+  console.warn('   2. Add it as a GitHub secret named SUPABASE_ACCESS_TOKEN');
+  console.warn('   3. Optionally add SUPABASE_PROJECT_REF (default: krtcjxkronmxribkccab)');
+  console.warn('   SQL files in setup/sql/ must be applied manually until then.');
+  process.exit(0);
 }
 
 async function runSql(sql) {
