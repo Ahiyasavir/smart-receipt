@@ -20,14 +20,22 @@
 import { createScraper } from 'israeli-bank-scrapers';
 import { createClient }   from '@supabase/supabase-js';
 
-// ── Supabase setup ────────────────────────────────────────────────────────────
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY, // service role bypasses RLS
-);
-const USER_ID = process.env.SUPABASE_USER_ID;
+// ── Validate required env vars BEFORE touching createClient ──────────────────
+const SUPABASE_URL              = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const USER_ID                   = process.env.SUPABASE_USER_ID;
 
-if (!USER_ID) throw new Error('SUPABASE_USER_ID is required');
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.log('Skipping sync: missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(0);
+}
+if (!USER_ID) {
+  console.log('Skipping sync: missing SUPABASE_USER_ID');
+  process.exit(0);
+}
+
+// ── Supabase client (only reached when all vars are present) ──────────────────
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // ── Category classifier (mirrors src/utils/categoryClassifier.ts) ─────────────
 const KEYWORD_MAP = {
