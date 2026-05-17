@@ -98,16 +98,16 @@ export default function App() {
 
   useEffect(() => { setConfirmDelete(false); }, [selectedReceipt]);
 
+  const { receipts, loading: receiptsLoading, addReceipt, updateItem, updateReceipt, removeReceipt } = useReceipts(userId);
+  const { budgets, updateBudgets, emailDigest, setEmailDigestPref } = useBudgets(userId);
+  const spendingAlerts = useSpendingAlerts(receipts, budgets);
+
   // Check notifications whenever receipts or budgets update
   useEffect(() => {
     if (!notificationsGranted() || receiptsLoading) return;
     checkReturnDeadlines(receipts);
     checkBudgetAlerts(receipts, budgets, symbol);
   }, [receipts, budgets, symbol, receiptsLoading]);
-
-  const { receipts, loading: receiptsLoading, addReceipt, updateItem, updateReceipt, removeReceipt } = useReceipts(userId);
-  const { budgets, updateBudgets, emailDigest, setEmailDigestPref } = useBudgets(userId);
-  const spendingAlerts = useSpendingAlerts(receipts, budgets);
 
   const haptic = (ms = 30) => navigator.vibrate?.(ms);
 
