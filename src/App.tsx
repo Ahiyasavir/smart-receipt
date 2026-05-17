@@ -838,7 +838,7 @@ export default function App() {
       {emailGuideOpen && (
         <EmailSetupGuide
           userId={userId}
-          onCopied={() => setToast('Sync address copied')}
+          onToast={(m) => setToast(m)}
           onClose={() => setEmailGuideOpen(false)}
         />
       )}

@@ -80,6 +80,12 @@ function classify(text: string): string {
   for (const [cat, kws] of Object.entries(KEYWORD_MAP)) if (kws.some((k) => lower.includes(k))) return cat;
   return 'other';
 }
+// Deterministic confidence: user override = certain; keyword hit = high;
+// unclassified fallback = low (so the UI can flag it for review).
+function confidenceFor(category: string, fromOverride: boolean): number {
+  if (fromOverride) return 1;
+  return category === 'other' ? 0.4 : 0.85;
+}
 
 // ── Alert parser (twin of src/services/emailIngestion.ts) ─────────────────────
 function detectCurrency(raw: string): string {
@@ -186,12 +192,29 @@ async function readInbound(req: Request): Promise<Inbound> {
   return { to, messageId, body };
 }
 
-function extractUserId(to: string): string | null {
-  // sync+<uuid>@domain  (also tolerate plain <uuid>@ for flexibility)
-  const m = to.match(
-    /(?:sync\+)?([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})@/,
-  );
-  return m ? m[1].toLowerCase() : null;
+const UUID_RE =
+  /([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})/;
+
+/**
+ * Resolve the owning user from the recipient address.
+ *  - New (productized): sync_<alias>@domain  → look up bank_sync_alias.
+ *  - Legacy (back-compat): sync+<uuid>@domain → use the uuid directly.
+ * Returns null if neither resolves to a real user.
+ */
+async function resolveUser(to: string): Promise<string | null> {
+  // Non-guessable alias form: sync_<token>
+  const am = to.match(/sync_([a-z0-9]{16,64})@/i);
+  if (am) {
+    const { data } = await admin.from('gmail_connections')
+      .select('user_id, forwarding_enabled')
+      .eq('bank_sync_alias', am[1].toLowerCase())
+      .maybeSingle();
+    if (data && data.forwarding_enabled !== false) return data.user_id as string;
+    return null; // unknown/revoked alias
+  }
+  // Legacy uuid form (existing setups / tests): sync+<uuid> or bare <uuid>
+  const um = to.match(UUID_RE);
+  return um ? um[1].toLowerCase() : null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -204,8 +227,11 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { to, messageId, body } = await readInbound(req);
-    const userId = extractUserId(to);
-    if (!userId) return json({ error: 'no_user_in_recipient', to }, 400);
+    // Defensive size cap — alerts are tiny; anything large is junk/abuse.
+    if (body && body.length > 100_000) return json({ error: 'payload_too_large' }, 413);
+
+    const userId = await resolveUser(to);
+    if (!userId) return json({ error: 'unknown_recipient' }, 404);
     if (!body)   return json({ error: 'empty_body' }, 400);
 
     const alert = parseAlertEmail(body);
@@ -218,7 +244,9 @@ Deno.serve(async (req: Request) => {
 
     const merchant = normalizeMerchantName(alert.merchant);
     const key = merchantKey(alert.merchant);
+    const fromOverride = overrides.has(key);
     const category = overrides.get(key) ?? classify(`${alert.merchant} ${merchant}`);
+    const confidence = confidenceFor(category, fromOverride);
 
     const row = {
       id: crypto.randomUUID(),
@@ -226,7 +254,9 @@ Deno.serve(async (req: Request) => {
       date: new Date(alert.timestamp).toISOString(),
       store_name: merchant,
       raw_text: alert.merchant,
-      items: [{ id: crypto.randomUUID(), name: merchant, amount: alert.amount, category, raw: body.slice(0, 500) }],
+      // PII minimization: keep only the parsed merchant string, never the
+      // raw email body.
+      items: [{ id: crypto.randomUUID(), name: merchant, amount: alert.amount, category, confidence, raw: alert.merchant }],
       total: alert.amount,
       currency: alert.currency,
       source: 'bank-sync',

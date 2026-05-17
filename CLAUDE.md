@@ -68,6 +68,16 @@ email webhook ──────┘   external_id → idempotent upsert         
 - `setup/sql/0XX_*.sql` — migrations, applied **in order** via the Supabase SQL
   editor (no automated migrate step in prod).
 
+### Per-user identity (since productization)
+Public forwarding address is `sync_<bank_sync_alias>@<domain>` — a random,
+non-guessable token (migration `011`), **not** the raw auth uid. The webhook
+resolves alias → user_id server-side; legacy `sync+<uuid>@` still works
+(backward compat — do not remove). `useBankSync` provisions/rotates the alias
+and exposes connected/last-received state; `EmailSetupGuide` is the
+no-jargon connection-management UI (status, copy, regenerate, pause).
+Regenerating the alias revokes the old address; `forwarding_enabled=false`
+pauses without data loss.
+
 ### Email ingestion is PUSH (since Stage 17)
 The OAuth + hourly-cron PULL model was removed (avoids the $15k
 `gmail.readonly` audit and all polling load). Now: user auto-forwards bank
