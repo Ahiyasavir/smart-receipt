@@ -78,45 +78,70 @@ interface AlertPattern {
   map: (m: RegExpMatchArray) => { amount: string; merchant: string; date: string };
 }
 
+// English alert templates (amount may be "12", "12.5" or "12.50").
 const PATTERNS: AlertPattern[] = [
   {
-    // English (Chase/generic): "...was charged $45.90 at STARBUCKS on 05/17/2026."
     name: 'en-charged-at-on',
-    re: /charged\s+[$€£₪]?\s*([\d,]+\.\d{2})\s+at\s+(.+?)\s+on\s+(\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/i,
+    re: /charged\s+[$€£₪]?\s*([\d,]+(?:\.\d{1,2})?)\s+at\s+(.+?)\s+on\s+(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/i,
     map: (m) => ({ amount: m[1], merchant: m[2], date: m[3] }),
   },
   {
-    // English alt: "Transaction of $12.00 at AMZN MKTPLACE on 2026-05-17"
     name: 'en-transaction-of',
-    re: /transaction\s+of\s+[$€£₪]?\s*([\d,]+\.\d{2})\s+at\s+(.+?)\s+on\s+(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/i,
-    map: (m) => ({ amount: m[1], merchant: m[2], date: m[3] }),
-  },
-  {
-    // Hebrew (Max/Cal/Isracard alerts): "חיוב בסך 45.90 ש"ח בבית העסק SHUFERSAL בתאריך 17/05/2026"
-    name: 'he-chiyuv-besach',
-    re: /(?:חיוב|עסקה).{0,20}?([\d,]+\.\d{2})\s*(?:₪|ש"ח|ש״ח|שקל)?.{0,20}?(?:בבית העסק|בעסק|ב-)\s*(.+?)\s*(?:בתאריך|ב-)\s*(\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/,
+    re: /transaction\s+of\s+[$€£₪]?\s*([\d,]+(?:\.\d{1,2})?)\s+at\s+(.+?)\s+on\s+(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/i,
     map: (m) => ({ amount: m[1], merchant: m[2], date: m[3] }),
   },
 ];
 
+const DATE_RE = /(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/;
+
 /**
- * Parse a single alert email body. Returns null if no known pattern matches —
- * the caller skips it (graceful: unknown formats are ignored, never guessed).
+ * Hebrew bank/card alerts vary wildly in word order and filler text, so we
+ * extract amount / merchant / date INDEPENDENTLY instead of with one rigid
+ * ordered regex. Handles e.g.:
+ *   "חיוב בסך 45.90 ש"ח בבית העסק SHUFERSAL בתאריך 14/05/2026"
+ *   "בתאריך 16/05/2026 בוצעה עסקת חיוב בסך 89.90 ש"ח בבית העסק WOLT. תודה"
+ *   "...חויב בסך 350.00 ש"ח בבית העסק PAZ GAS STATION בתאריך 15/05/2026."
+ */
+function parseHebrewAlert(text: string): { amount: string; merchant: string; date: string } | null {
+  // amount: prefer "בסך <n>", else a number adjacent to a shekel marker
+  const amount =
+    text.match(/בסך\s*([\d,]+(?:\.\d{1,2})?)/)?.[1] ??
+    text.match(/([\d,]+(?:\.\d{1,2})?)\s*(?:₪|ש"ח|ש״ח|שקל|ILS)/)?.[1];
+
+  // merchant: "בבית העסק <m>" or "בעסק <m>", stop at the next field/punctuation
+  const merchant = text.match(
+    /ב(?:בית\s+ה)?עסק\s+(.+?)(?=\s*(?:בתאריך|בסך|בשעה|תודה|המשך|[.,]|$))/,
+  )?.[1];
+
+  // date: prefer "בתאריך <d>", else the first date-looking token
+  const date =
+    text.match(/בתאריך\s*(\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/)?.[1] ??
+    text.match(DATE_RE)?.[1];
+
+  if (!amount || !merchant || !date) return null;
+  return { amount, merchant, date };
+}
+
+/**
+ * Parse a single alert email body. Returns null if nothing matches — the
+ * caller skips it (graceful: unknown formats are ignored, never guessed).
  */
 export function parseAlertEmail(body: string, fallbackIso?: string): ParsedAlert | null {
   const text = body.replace(/\s+/g, ' ').trim();
 
+  const candidates: ({ amount: string; merchant: string; date: string })[] = [];
   for (const p of PATTERNS) {
     const m = text.match(p.re);
-    if (!m) continue;
-    const { amount, merchant, date } = p.map(m);
+    if (m) candidates.push(p.map(m));
+  }
+  const he = parseHebrewAlert(text);
+  if (he) candidates.push(he);
 
+  for (const { amount, merchant, date } of candidates) {
     const numeric = parseFloat(amount.replace(/,/g, ''));
     if (!isFinite(numeric) || numeric <= 0) continue;
-
     const iso = toIso(date) ?? (fallbackIso ? fallbackIso.slice(0, 10) : null);
     if (!iso) continue;
-
     return {
       amount: Math.abs(numeric),
       currency: detectCurrency(text),

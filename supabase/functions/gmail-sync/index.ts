@@ -98,21 +98,38 @@ function toIso(s: string): string | null {
   }
   return null;
 }
+// Twin of src/services/emailIngestion.ts — keep equivalent.
 const PATTERNS: { re: RegExp; map: (m: RegExpMatchArray) => { amount: string; merchant: string; date: string } }[] = [
-  { re: /charged\s+[$€£₪]?\s*([\d,]+\.\d{2})\s+at\s+(.+?)\s+on\s+(\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/i,
+  { re: /charged\s+[$€£₪]?\s*([\d,]+(?:\.\d{1,2})?)\s+at\s+(.+?)\s+on\s+(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/i,
     map: (m) => ({ amount: m[1], merchant: m[2], date: m[3] }) },
-  { re: /transaction\s+of\s+[$€£₪]?\s*([\d,]+\.\d{2})\s+at\s+(.+?)\s+on\s+(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/i,
-    map: (m) => ({ amount: m[1], merchant: m[2], date: m[3] }) },
-  { re: /(?:חיוב|עסקה).{0,20}?([\d,]+\.\d{2})\s*(?:₪|ש"ח|ש״ח|שקל)?.{0,20}?(?:בבית העסק|בעסק|ב-)\s*(.+?)\s*(?:בתאריך|ב-)\s*(\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/,
+  { re: /transaction\s+of\s+[$€£₪]?\s*([\d,]+(?:\.\d{1,2})?)\s+at\s+(.+?)\s+on\s+(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/i,
     map: (m) => ({ amount: m[1], merchant: m[2], date: m[3] }) },
 ];
+const DATE_RE = /(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/;
+function parseHebrewAlert(text: string): { amount: string; merchant: string; date: string } | null {
+  const amount =
+    text.match(/בסך\s*([\d,]+(?:\.\d{1,2})?)/)?.[1] ??
+    text.match(/([\d,]+(?:\.\d{1,2})?)\s*(?:₪|ש"ח|ש״ח|שקל|ILS)/)?.[1];
+  const merchant = text.match(
+    /ב(?:בית\s+ה)?עסק\s+(.+?)(?=\s*(?:בתאריך|בסך|בשעה|תודה|המשך|[.,]|$))/,
+  )?.[1];
+  const date =
+    text.match(/בתאריך\s*(\d{1,2}[/.]\d{1,2}[/.]\d{2,4})/)?.[1] ??
+    text.match(DATE_RE)?.[1];
+  if (!amount || !merchant || !date) return null;
+  return { amount, merchant, date };
+}
 interface ParsedAlert { amount: number; currency: string; merchant: string; timestamp: string; }
 function parseAlertEmail(body: string, fallbackIso?: string): ParsedAlert | null {
   const text = body.replace(/\s+/g, ' ').trim();
+  const candidates: { amount: string; merchant: string; date: string }[] = [];
   for (const p of PATTERNS) {
     const m = text.match(p.re);
-    if (!m) continue;
-    const { amount, merchant, date } = p.map(m);
+    if (m) candidates.push(p.map(m));
+  }
+  const he = parseHebrewAlert(text);
+  if (he) candidates.push(he);
+  for (const { amount, merchant, date } of candidates) {
     const n = parseFloat(amount.replace(/,/g, ''));
     if (!isFinite(n) || n <= 0) continue;
     const iso = toIso(date) ?? (fallbackIso ? fallbackIso.slice(0, 10) : null);
@@ -153,23 +170,38 @@ async function accessTokenFor(refreshToken: string): Promise<string> {
   if (!res.ok || !t.access_token) throw new Error(`token_refresh_failed: ${t.error ?? res.status}`);
   return t.access_token as string;
 }
+// base64url → bytes → proper UTF-8 (Gmail bodies are UTF-8; a plain atob()
+// leaves multibyte Hebrew/emoji as Latin-1 mojibake and breaks every regex).
+function b64urlToUtf8(data: string): string {
+  const bin = atob(data.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return new TextDecoder('utf-8').decode(bytes);
+}
+const ENTITIES: Record<string, string> = {
+  '&nbsp;': ' ', '&amp;': '&', '&quot;': '"', '&#34;': '"',
+  '&apos;': "'", '&#39;': "'", '&lt;': '<', '&gt;': '>',
+};
 function decodeBody(payload: any): string {
-  const stack = [payload]; let html = '';
+  const stack = [payload]; let plain = ''; let html = '';
   while (stack.length) {
     const p = stack.shift(); if (!p) continue;
     const data = p.body?.data;
     if (data) {
-      const txt = atob(data.replace(/-/g, '+').replace(/_/g, '/'));
-      if (p.mimeType === 'text/plain') return txt;
-      if (p.mimeType === 'text/html') html = txt.replace(/<[^>]+>/g, ' ');
+      const txt = b64urlToUtf8(data);
+      if (p.mimeType === 'text/plain') plain += txt;
+      else if (p.mimeType === 'text/html') html += txt;
     }
     if (p.parts) stack.push(...p.parts);
   }
-  return html;
+  // Prefer a non-trivial plain part; otherwise strip HTML tags.
+  let out = plain.trim().length > 3 ? plain : html.replace(/<[^>]+>/g, ' ');
+  out = out.replace(/&\w+;|&#\d+;/g, (m) => ENTITIES[m] ?? ' ');
+  // Drop bidi / zero-width marks that can split tokens.
+  return out.replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "");
 }
 
 // ── Per-user sync ─────────────────────────────────────────────────────────────
-async function syncUser(userId: string) {
+async function syncUser(userId: string, sinceHours?: number, debug?: boolean) {
   const { data: conn } = await admin.from('gmail_connections')
     .select('refresh_token, last_synced_at, status').eq('user_id', userId).maybeSingle();
   // 'error' is retried (self-healing) — only 'revoked'/missing is terminal.
@@ -182,7 +214,11 @@ async function syncUser(userId: string) {
     const auth = { Authorization: `Bearer ${accessToken}` };
     const api = 'https://gmail.googleapis.com/gmail/v1/users/me';
 
-    const afterSec = conn.last_synced_at ? Math.floor(new Date(conn.last_synced_at).getTime() / 1000) : undefined;
+    // sinceHours widens the fetch window (backfill / reprocess); the stored
+    // cursor still only moves forward, and idempotency prevents duplicates.
+    const afterSec = sinceHours
+      ? Math.floor((Date.now() - sinceHours * 3600_000) / 1000)
+      : conn.last_synced_at ? Math.floor(new Date(conn.last_synced_at).getTime() / 1000) : undefined;
     const q = afterSec ? `${ALERT_QUERY} after:${afterSec}` : ALERT_QUERY;
     const listRes = await fetch(`${api}/messages?maxResults=25&q=${encodeURIComponent(q)}`, { headers: auth });
     if (!listRes.ok) throw new Error(`messages.list ${listRes.status}`);
@@ -194,11 +230,15 @@ async function syncUser(userId: string) {
     const overrides = new Map<string, string>((ovRows ?? []).map((r: any) => [r.merchant_key, r.category]));
 
     const rows: any[] = [];
+    const dbg: any[] = [];
     for (const ref of refs) {
       const gRes = await fetch(`${api}/messages/${ref.id}?format=full`, { headers: auth });
       if (!gRes.ok) continue;
       const body = decodeBody((await gRes.json()).payload);
       const alert = parseAlertEmail(body, runStartedIso);
+      if (debug) {
+        dbg.push({ id: ref.id, parsed: !!alert, len: body.length, sample: body.slice(0, 280) });
+      }
       if (!alert) continue; // unknown format → skip, never fabricate
 
       const merchant = normalizeMerchantName(alert.merchant);
@@ -215,6 +255,8 @@ async function syncUser(userId: string) {
       // No mark-as-read: we never mutate the user's mailbox. Dedup is handled
       // entirely by the cursor + deterministic external_id.
     }
+
+    if (debug) return { userId, scanned: refs.length, parsed: rows.length, debug: dbg };
 
     let inserted = 0;
     if (rows.length) {
@@ -238,10 +280,10 @@ async function syncUser(userId: string) {
 }
 
 Deno.serve(async (req: Request) => {
-  let body: { userId?: string } = {};
+  let body: { userId?: string; sinceHours?: number; debug?: boolean } = {};
   try { body = await req.json(); } catch { /* cron: no body */ }
   try {
-    if (body.userId) return json(await syncUser(body.userId));
+    if (body.userId) return json(await syncUser(body.userId, body.sinceHours, body.debug));
     const { data: conns } = await admin.from('gmail_connections')
       .select('user_id').in('status', ['connected', 'error']);
     const results = [];
