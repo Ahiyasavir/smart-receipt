@@ -445,52 +445,79 @@ export default function App() {
               <CategoryBreakdown receipts={filteredReceipts} title="This view" />
             )}
 
-            {/* Receipt list */}
-            {!receiptsLoading && filteredReceipts.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => { haptic(); setSelectedReceipt(r); }}
-                className={`w-full ${dm ? 'bg-gray-800 hover:bg-gray-750' : 'bg-white hover:shadow-md'} rounded-2xl p-4 shadow-sm text-left active:scale-[0.99] transition-all`}
+            {/* Spends list — Spendora designed Activity rows */}
+            {!receiptsLoading && filteredReceipts.length > 0 && (
+              <div
+                style={{
+                  background: 'var(--surface-card)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: 'var(--shadow-card)',
+                  overflow: 'hidden',
+                }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className={`font-semibold truncate max-w-[60%] ${dm ? 'text-white' : 'text-gray-800'}`}>{r.storeName}</p>
-                      <BankBadge source={r.source} />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {new Date(r.date).toLocaleDateString()} · {r.items.length} item{r.items.length !== 1 ? 's' : ''}
-                      {r.notes && <span className="ml-1 text-blue-400">· {r.notes}</span>}
-                    </p>
-                    {/* Category pills for the receipt */}
-                    {r.items.length > 0 && (
-                      <div className="flex gap-1 mt-1.5 flex-wrap">
-                        {[...new Set(r.items.map((i) => i.category))].slice(0, 3).map((cat) => (
-                          <span key={cat} className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
-                            style={{ backgroundColor: CATEGORY_META[cat]?.color + '22', color: CATEGORY_META[cat]?.color }}>
-                            {CATEGORY_META[cat]?.emoji} {CATEGORY_META[cat]?.label}
-                          </span>
-                        ))}
-                        {r.returnDeadline && (() => {
-                          const daysLeft = Math.ceil((new Date(r.returnDeadline).getTime() - Date.now()) / 86400000);
-                          if (daysLeft < 0) return null;
-                          return (
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${
-                              daysLeft <= 3 ? 'bg-red-100 text-red-600' : daysLeft <= 7 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-600'
-                            }`}>
-                              ⏰ {daysLeft === 0 ? 'Return today!' : `Return in ${daysLeft}d`}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-lg font-bold text-blue-600 ml-3 shrink-0">
-                    {fmtFrom(r.total, r.currency)}
-                  </p>
-                </div>
-              </button>
-            ))}
+                {filteredReceipts.map((r, idx) => {
+                  const counts = r.items.reduce<Record<string, number>>((m, i) => {
+                    m[i.category] = (m[i.category] ?? 0) + 1; return m;
+                  }, {});
+                  const domCat = (Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'other') as Category;
+                  const meta = CATEGORY_META[domCat] ?? CATEGORY_META.other;
+                  const daysLeft = r.returnDeadline
+                    ? Math.ceil((new Date(r.returnDeadline).getTime() - Date.now()) / 86400000)
+                    : null;
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => { haptic(); setSelectedReceipt(r); }}
+                      className="s-pressable w-full text-left flex items-center gap-3"
+                      style={{
+                        padding: '12px 14px',
+                        borderBottom: idx < filteredReceipts.length - 1 ? '1px solid var(--color-border)' : 'none',
+                        background: 'transparent',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+                          background: (meta.color ?? '#6B7280') + '21',
+                          display: 'grid', placeItems: 'center', fontSize: 17,
+                        }}
+                      >{meta.emoji}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="truncate"
+                            style={{ font: '600 14px var(--font-sans)', color: 'var(--ink)' }}
+                          >{r.storeName}</span>
+                          <BankBadge source={r.source} />
+                          {daysLeft !== null && daysLeft >= 0 && (
+                            <span
+                              style={{
+                                font: '700 9px var(--font-sans)', padding: '2px 6px',
+                                borderRadius: 999, flexShrink: 0,
+                                background: daysLeft <= 3 ? 'var(--status-error-bg)' : daysLeft <= 7 ? 'var(--status-warning-bg)' : 'var(--status-info-bg)',
+                                color: daysLeft <= 3 ? 'var(--status-error)' : daysLeft <= 7 ? 'var(--status-warning)' : 'var(--status-info)',
+                              }}
+                            >⏰ {daysLeft === 0 ? 'today' : `${daysLeft}d`}</span>
+                          )}
+                        </span>
+                        <span
+                          className="block mt-0.5 truncate"
+                          style={{ font: '400 11px var(--font-sans)', color: 'var(--ink-muted)' }}
+                        >
+                          {new Date(r.date).toLocaleDateString()} · {meta.label}
+                          {r.notes ? ` · ${r.notes}` : ''}
+                        </span>
+                      </span>
+                      <span
+                        className="shrink-0"
+                        style={{ font: '700 14px var(--font-sans)', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}
+                      >{fmtFrom(r.total, r.currency)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
