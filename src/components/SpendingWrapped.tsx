@@ -1,24 +1,27 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { Receipt } from '../types';
 import { CATEGORY_META } from '../utils/categoryClassifier';
+import { useCurrency } from '../contexts/CurrencyContext';
+
+type Convert = (amount: number, fromCurrency?: string | null) => number;
 
 interface Props {
   receipts: Receipt[];
   onClose: () => void;
 }
 
-function buildStats(receipts: Receipt[]) {
+function buildStats(receipts: Receipt[], convert: Convert) {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthly = receipts.filter((r) => new Date(r.date) >= monthStart);
 
-  const total = monthly.reduce((s, r) => s + r.total, 0);
+  const total = monthly.reduce((s, r) => s + convert(r.total, r.currency), 0);
 
   // Top category
   const catMap: Record<string, number> = {};
   for (const r of monthly)
     for (const item of r.items)
-      catMap[item.category] = (catMap[item.category] ?? 0) + item.amount;
+      catMap[item.category] = (catMap[item.category] ?? 0) + convert(item.amount, r.currency);
   const topCatKey = Object.entries(catMap).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'other';
   const topCat = CATEGORY_META[topCatKey as keyof typeof CATEGORY_META];
   const topCatPct = total > 0 ? Math.round((catMap[topCatKey] / total) * 100) : 0;
@@ -37,7 +40,8 @@ function buildStats(receipts: Receipt[]) {
 
 export default function SpendingWrapped({ receipts, onClose }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const stats = buildStats(receipts);
+  const { convert, symbol } = useCurrency();
+  const stats = buildStats(receipts, convert);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -78,7 +82,7 @@ export default function SpendingWrapped({ receipts, onClose }: Props) {
     centeredText(`${stats.monthName} Recap`, 140, 36, '700');
 
     // Big total
-    centeredText(`$${stats.total.toFixed(2)}`, 270, 88, '800');
+    centeredText(`${symbol}${stats.total.toFixed(2)}`, 270, 88, '800');
     centeredText('total spent', 310, 20, '400', 'rgba(255,255,255,0.65)');
 
     // Divider
@@ -88,7 +92,7 @@ export default function SpendingWrapped({ receipts, onClose }: Props) {
 
     // Stats grid
     const statBoxes = [
-      { label: 'Receipts', value: String(stats.count), emoji: '🧾' },
+      { label: 'Spends', value: String(stats.count), emoji: '🧾' },
       { label: 'Top Category', value: `${stats.topCat?.emoji} ${stats.topCatPct}%`, emoji: '' },
       { label: 'Fav Store', value: stats.topStore?.[0] ?? '—', emoji: '🏪' },
     ];
@@ -122,7 +126,7 @@ export default function SpendingWrapped({ receipts, onClose }: Props) {
 
     // CTA
     centeredText('Track yours with Spendora', 820, 18, '400', 'rgba(255,255,255,0.45)');
-  }, [stats]);
+  }, [stats, symbol]);
 
   useEffect(() => { draw(); }, [draw]);
 

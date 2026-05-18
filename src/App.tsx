@@ -41,6 +41,7 @@ function useSpendingAlerts(
   receipts: Receipt[],
   budgets: ReturnType<typeof useBudgets>['budgets'],
 ) {
+  const { convert } = useCurrency();
   return useMemo(() => {
     const now   = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -48,7 +49,8 @@ function useSpendingAlerts(
     const totals: Partial<Record<string, number>> = {};
     for (const r of monthly)
       for (const item of r.items)
-        totals[item.category] = (totals[item.category] ?? 0) + item.amount;
+        // Budgets are in display currency → convert each spend before summing.
+        totals[item.category] = (totals[item.category] ?? 0) + convert(item.amount, r.currency);
 
     return Object.entries(budgets.monthly)
       .filter(([, budget]) => !!budget)
@@ -59,7 +61,7 @@ function useSpendingAlerts(
         label: CATEGORY_META[cat as keyof typeof CATEGORY_META]?.label ?? cat,
       }))
       .filter((a) => a.spent > a.budget * 0.8);
-  }, [receipts, budgets]);
+  }, [receipts, budgets, convert]);
 }
 
 export default function App() {
@@ -149,12 +151,12 @@ export default function App() {
     const text = [
       `🧾 ${receipt.storeName}`,
       `Date: ${new Date(receipt.date).toLocaleDateString()}`,
-      `Total: ${fmt(receipt.total)}`,
+      `Total: ${fmtFrom(receipt.total, receipt.currency)}`,
       '',
-      ...receipt.items.map((i) => `• ${i.name}: ${fmt(i.amount)}`),
+      ...receipt.items.map((i) => `• ${i.name}: ${fmtFrom(i.amount, receipt.currency)}`),
     ].join('\n');
     if (navigator.share) {
-      await navigator.share({ title: `Receipt — ${receipt.storeName}`, text });
+      await navigator.share({ title: `${receipt.storeName} · Spendora`, text });
     } else {
       await navigator.clipboard.writeText(text);
       setToast('Receipt copied to clipboard');
@@ -538,7 +540,7 @@ export default function App() {
               );
             })()}
 
-            <ItemList items={selectedReceipt.items} onItemChange={(item) => {
+            <ItemList items={selectedReceipt.items} currency={selectedReceipt.currency} onItemChange={(item) => {
               // Persist category correction as merchant override for bank transactions
               if (selectedReceipt.source === 'bank-sync' || selectedReceipt.source === 'bank-import') {
                 saveOverride(merchantKey(selectedReceipt.storeName), item.category);

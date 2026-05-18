@@ -36,7 +36,7 @@ export default function CategoryBreakdown({ receipts, title = 'Spending by categ
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center shadow-sm animate-fade-slide">
         <div className="text-3xl mb-2">📊</div>
         <p className="text-sm font-medium text-gray-600 dark:text-gray-300">No spending to analyze yet</p>
-        <p className="text-xs text-gray-400 mt-1">Scan a receipt or connect your bank to see insights here.</p>
+        <p className="text-xs text-gray-400 mt-1">Connect your email to start tracking spends automatically.</p>
       </div>
     );
   }

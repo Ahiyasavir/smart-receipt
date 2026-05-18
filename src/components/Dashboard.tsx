@@ -195,10 +195,24 @@ function CustomTooltip({ active, payload, label, symbol }: { active?: boolean; p
 export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets, onOpenWrapped, onOpenBankConnect }: Props) {
   const [period,    setPeriod]    = useState<Period>('month');
   const [chartView, setChartView] = useState<'bar' | 'pie' | 'trend'>('bar');
-  const { fmt, symbol } = useCurrency();
+  const { fmt, symbol, convert, currency } = useCurrency();
 
-  const filtered     = useMemo(() => filterByPeriod(receipts, period), [receipts, period]);
-  const lastMonth    = useMemo(() => filterLastMonth(receipts), [receipts]);
+  // Single source of truth for ALL Dashboard math: every amount converted from
+  // its receipt's original currency into the display currency exactly once.
+  // Originals are never mutated (new objects); every builder below consumes
+  // this so there are no raw/partial conversion paths anywhere on this screen.
+  const viewReceipts = useMemo(
+    () => receipts.map((r) => ({
+      ...r,
+      currency,
+      total: convert(r.total, r.currency),
+      items: r.items.map((it) => ({ ...it, amount: convert(it.amount, r.currency) })),
+    })),
+    [receipts, convert, currency],
+  );
+
+  const filtered     = useMemo(() => filterByPeriod(viewReceipts, period), [viewReceipts, period]);
+  const lastMonth    = useMemo(() => filterLastMonth(viewReceipts), [viewReceipts]);
   const { summaries, total, itemCount } = useMemo(() => buildSummaries(filtered), [filtered]);
   const { total: lastMonthTotal }       = useMemo(() => buildSummaries(lastMonth), [lastMonth]);
 
@@ -210,11 +224,11 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
   const monthDiff    = total - lastMonthTotal;
   const monthDiffPct = lastMonthTotal > 0 ? (monthDiff / lastMonthTotal) * 100 : null;
 
-  const dailyData     = useMemo(() => buildDailyData(receipts, period === 'week' ? 7 : period === 'month' ? 30 : 60), [receipts, period]);
-  const weeklyData    = useMemo(() => buildWeeklyTrend(receipts), [receipts]);
+  const dailyData     = useMemo(() => buildDailyData(viewReceipts, period === 'week' ? 7 : period === 'month' ? 30 : 60), [viewReceipts, period]);
+  const weeklyData    = useMemo(() => buildWeeklyTrend(viewReceipts), [viewReceipts]);
   const pieData       = summaries.map((s) => ({ name: s.label, value: Math.round(s.total * 100) / 100, color: s.color, emoji: s.emoji }));
   const insights      = useMemo(() => buildInsights(filtered, fmt), [filtered, fmt]);
-  const subscriptions = useMemo(() => buildSubscriptions(receipts), [receipts]);
+  const subscriptions = useMemo(() => buildSubscriptions(viewReceipts), [viewReceipts]);
 
   // Data-source breakdown (scanned vs bank)
   const scannedCount  = receipts.filter((r) => !r.source || r.source === 'scan').length;
@@ -275,8 +289,8 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                 <div>
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{scannedCount} scanned</p>
-                  <p className="text-[10px] text-gray-400">Receipt OCR</p>
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{scannedCount} added manually</p>
+                  <p className="text-[10px] text-gray-400">Manual entry</p>
                 </div>
               </div>
             )}
@@ -301,7 +315,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
           <span className="text-2xl">🏦</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-800 dark:text-white">Connect your bank</p>
-            <p className="text-xs text-gray-400">Import transactions automatically — no manual scanning needed</p>
+            <p className="text-xs text-gray-400">Import transactions automatically — no manual entry needed</p>
           </div>
           <span className="text-gray-300 dark:text-gray-600 text-lg shrink-0">›</span>
         </button>
@@ -309,7 +323,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
 
       {filtered.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-10 text-center shadow-sm">
-          <p className="text-gray-400 text-sm">No receipts in this period</p>
+          <p className="text-gray-400 text-sm">No spends in this period</p>
         </div>
       ) : (
         <>
@@ -317,12 +331,12 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-blue-600 text-white rounded-2xl p-4 shadow-sm">
               <p className="text-xs uppercase tracking-wide opacity-70">Total Spend</p>
-              <p className="text-2xl font-bold mt-1">${total.toFixed(2)}</p>
-              <p className="text-xs opacity-60 mt-1">{filtered.length} receipt{filtered.length !== 1 ? 's' : ''}</p>
+              <p className="text-2xl font-bold mt-1">{fmt(total)}</p>
+              <p className="text-xs opacity-60 mt-1">{filtered.length} spend{filtered.length !== 1 ? 's' : ''}</p>
             </div>
             <div className="bg-emerald-500 text-white rounded-2xl p-4 shadow-sm">
-              <p className="text-xs uppercase tracking-wide opacity-70">Avg per Receipt</p>
-              <p className="text-2xl font-bold mt-1">${avgPerReceipt.toFixed(2)}</p>
+              <p className="text-xs uppercase tracking-wide opacity-70">Avg per Spend</p>
+              <p className="text-2xl font-bold mt-1">{fmt(avgPerReceipt)}</p>
               <p className="text-xs opacity-60 mt-1">{itemCount} item{itemCount !== 1 ? 's' : ''} tracked</p>
             </div>
           </div>
@@ -347,7 +361,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-400 uppercase tracking-wide">vs Last Month</p>
                 <p className="font-semibold text-gray-800 dark:text-white">
-                  {monthDiff > 0 ? '+' : ''}${monthDiff.toFixed(2)}
+                  {monthDiff >= 0 ? '+' : '−'}{fmt(monthDiff)}
                 </p>
               </div>
               <div className="text-right shrink-0">
@@ -356,7 +370,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                     {monthDiff > 0 ? '▲' : '▼'} {Math.abs(monthDiffPct).toFixed(0)}%
                   </span>
                 )}
-                <p className="text-xs text-gray-400">last month ${lastMonthTotal.toFixed(2)}</p>
+                <p className="text-xs text-gray-400">last month {fmt(lastMonthTotal)}</p>
               </div>
             </div>
           )}
@@ -371,7 +385,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                 <p className="text-xs text-gray-400">{topCategory.count} item{topCategory.count !== 1 ? 's' : ''}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="font-bold text-gray-900 dark:text-white">${topCategory.total.toFixed(2)}</p>
+                <p className="font-bold text-gray-900 dark:text-white">{fmt(topCategory.total)}</p>
                 <p className="text-xs text-gray-400">{total > 0 ? ((topCategory.total / total) * 100).toFixed(0) : 0}% of total</p>
               </div>
             </div>
@@ -425,7 +439,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                         </p>
                       </div>
                       <span className="text-sm font-semibold text-purple-600 dark:text-purple-400 shrink-0">
-                        ${sub.avgAmount.toFixed(2)}
+                        {fmt(sub.avgAmount)}
                       </span>
                     </li>
                   );
@@ -495,7 +509,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between text-xs">
                             <span className="text-gray-600 dark:text-gray-300 truncate">{d.name}</span>
-                            <span className="font-medium text-gray-800 dark:text-white ml-1 shrink-0">${d.value.toFixed(0)}</span>
+                            <span className="font-medium text-gray-800 dark:text-white ml-1 shrink-0">{symbol}{d.value.toFixed(0)}</span>
                           </div>
                           <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1 mt-0.5">
                             <div className="h-1 rounded-full" style={{ width: `${total > 0 ? (d.value / total) * 100 : 0}%`, backgroundColor: d.color }} />
@@ -537,9 +551,9 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                         {overBudget && <span className="text-xs text-red-600 font-semibold">Over!</span>}
                       </div>
                       <div className="text-right">
-                        <span className="font-semibold text-gray-900 dark:text-white text-sm">${s.total.toFixed(2)}</span>
+                        <span className="font-semibold text-gray-900 dark:text-white text-sm">{fmt(s.total)}</span>
                         {budget
-                          ? <span className="text-xs text-gray-400 ml-1">/ ${budget.toFixed(0)}</span>
+                          ? <span className="text-xs text-gray-400 ml-1">/ {symbol}{budget.toFixed(0)}</span>
                           : <span className="text-xs text-gray-400 ml-1">{pct.toFixed(0)}%</span>}
                       </div>
                     </div>
@@ -563,7 +577,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
           {/* Recent receipts */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Recent Receipts</h3>
+              <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Recent Spends</h3>
             </div>
             <ul className="divide-y divide-gray-50 dark:divide-gray-700">
               {filtered.slice(0, 5).map((r) => (
@@ -577,7 +591,7 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
                       {new Date(r.date).toLocaleDateString()} · {r.items.length} item{r.items.length !== 1 ? 's' : ''}
                     </p>
                   </div>
-                  <p className="text-sm font-semibold text-blue-600 ml-3 shrink-0">${r.total.toFixed(2)}</p>
+                  <p className="text-sm font-semibold text-blue-600 ml-3 shrink-0">{fmt(r.total)}</p>
                 </li>
               ))}
             </ul>
