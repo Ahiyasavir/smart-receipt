@@ -25,12 +25,12 @@ export default function ManualEditModal({ item, onSave, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 z-50 flex items-end justify-center p-4"
+      className="fixed inset-0 bg-ink/30 backdrop-blur-[2px] z-50 flex items-end justify-center p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
-        <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">Edit Item</h2>
+      <div className="bg-surface-card rounded-t-3xl w-full max-w-sm shadow-nav animate-slide-up">
+        <div className="flex items-center justify-between px-4 pt-4 pb-2 border-b border-[var(--color-border)]">
+          <h2 className="text-base font-semibold text-ink">Edit Item</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-lg leading-none"
@@ -115,3 +115,4 @@ export default function ManualEditModal({ item, onSave, onClose }: Props) {
     </div>
   );
 }
+

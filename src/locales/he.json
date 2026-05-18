@@ -1,0 +1,107 @@
+{
+  "app": {
+    "name": "Spendora"
+  },
+  "nav": {
+    "home": "בית",
+    "activity": "פעילות",
+    "capture": "הוסף",
+    "settings": "הגדרות"
+  },
+  "home": {
+    "totalSpend": "סה״כ הוצאות",
+    "receiptsTracked": "{{count}} קבלות",
+    "itemsTracked": "פריטים במעקב",
+    "categories": "{{count}} קטגוריות",
+    "activeCategories": "קטגוריות",
+    "categoryBreakdown": "לאן הלך הכסף",
+    "connections": "סטטוס סנכרון",
+    "emptyTitle": "סיפור ההוצאות שלך מתחיל כאן",
+    "emptyDescription": "חברו את האימייל או הוסיפו קבלה כדי לראות תובנות אוטומטיות.",
+    "emptyCta": "הוסף הוצאה"
+  },
+  "activity": {
+    "title": "פעילות",
+    "emptyTitle": "אין פעילות עדיין",
+    "emptyDescription": "הוצאות מקבלות וסנכרון יופיעו כאן אוטומטית.",
+    "emptyCta": "הוסף הוצאה",
+    "viewReceipt": "צפה בקבלה"
+  },
+  "capture": {
+    "title": "הוסף הוצאה",
+    "subtitle": "העלו קבלה לחילוץ הוצאות אוטומטי",
+    "uploadTitle": "העלאת קבלה",
+    "uploadHint": "JPG · PNG · HEIC · גרירה ושחרור",
+    "scopeTitle": "תוצאות מיטביות",
+    "scopeItems": ["קבלות סופרמרקט באנגלית מודפסות", "תמונה שטוחה, מוארת וחדה", "פורמט עמודה יחידה סטנדרטי"],
+    "scopeNote": "שפות ופורמטים נוספים בקרוב.",
+    "mockReceipt": "נסו קבלת דוגמה",
+    "scanning": "קורא קבלה…",
+    "save": "שמור לפעילות",
+    "discard": "בטל",
+    "tryAgain": "נסה שוב",
+    "saved": "נשמר",
+    "ocrError": "לא ניתן לקרוא קובץ זה. נסו תמונה אחרת או קובץ קטן יותר."
+  },
+  "detail": {
+    "merchant": "בית עסק",
+    "amount": "סכום",
+    "category": "קטגוריה",
+    "source": "מקור",
+    "confidence": "רמת ביטחון",
+    "date": "תאריך",
+    "rawText": "טקסט מפוענח",
+    "notes": "הערות",
+    "noNotes": "אין הערות",
+    "highConfidence": "ביטחון גבוה",
+    "reviewSuggested": "מומלץ לבדוק",
+    "deleteReceipt": "מחק קבלה"
+  },
+  "settings": {
+    "title": "הגדרות",
+    "language": "שפה",
+    "currency": "מטבע",
+    "connections": "חיבורים",
+    "developer": "כלי מפתח",
+    "showDebug": "הצג ניפוי מפענח",
+    "about": "אודות",
+    "version": "גרסה {{version}}",
+    "comingSoon": "בקרוב"
+  },
+  "connections": {
+    "receipt": "לכידת קבלות",
+    "bank": "חשבון בנק",
+    "email": "סנכרון אימייל",
+    "connected": "מחובר",
+    "waiting": "ממתין",
+    "paused": "מושהה",
+    "error": "שגיאה",
+    "disconnected": "לא מחובר",
+    "lastSynced": "סונכרן לאחרונה {{date}}",
+    "neverSynced": "לא סונכרן",
+    "connect": "התחבר",
+    "connectBank": "חבר בנק",
+    "connectEmail": "חבר אימייל"
+  },
+  "sources": {
+    "receipt": "קבלה",
+    "bank": "בנק",
+    "email": "אימייל"
+  },
+  "categories": {
+    "food": "אוכל ושתייה",
+    "groceries": "מכולת",
+    "transport": "תחבורה",
+    "entertainment": "בידור",
+    "health": "בריאות",
+    "shopping": "קניות",
+    "utilities": "שירותים",
+    "other": "אחר"
+  },
+  "common": {
+    "back": "חזרה",
+    "close": "סגור",
+    "items": "{{count}} פריטים",
+    "item": "פריט אחד"
+  }
+}

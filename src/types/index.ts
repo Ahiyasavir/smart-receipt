@@ -36,4 +36,4 @@ export interface CategorySummary {
   emoji: string;
 }
 
-export type AppTab = 'scan' | 'dashboard' | 'history';
+export type AppTab = 'home' | 'activity' | 'capture' | 'settings';

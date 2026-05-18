@@ -1,14 +1,26 @@
+import { useTranslation } from 'react-i18next';
 import { Receipt, Category, CategorySummary } from '../types';
 import { CATEGORY_META } from '../utils/categoryClassifier';
+import { getConnectionStates } from '../lib/connections';
+import { usePreferences } from '../hooks/usePreferences';
 import CategoryBreakdown from './CategoryBreakdown';
+import ConnectionsPanel from './ConnectionsPanel';
+import Card from './ui/Card';
+import Amount from './ui/Amount';
+import EmptyState from './ui/EmptyState';
+import SectionHeader from './ui/SectionHeader';
+import { IconChart } from './icons/NavIcons';
 
 interface Props {
   receipts: Receipt[];
+  onNavigateCapture?: () => void;
 }
 
-function buildSummaries(
-  receipts: Receipt[],
-): { summaries: CategorySummary[]; total: number; itemCount: number } {
+function buildSummaries(receipts: Receipt[]): {
+  summaries: CategorySummary[];
+  total: number;
+  itemCount: number;
+} {
   const map: Partial<Record<Category, CategorySummary>> = {};
   let total = 0;
   let itemCount = 0;
@@ -40,41 +52,62 @@ function buildSummaries(
   return { summaries, total: Math.round(total * 100) / 100, itemCount };
 }
 
-export default function Dashboard({ receipts }: Props) {
+export default function Dashboard({ receipts, onNavigateCapture }: Props) {
+  const { t } = useTranslation();
+  const { locale, currency } = usePreferences();
   const { summaries, total, itemCount } = buildSummaries(receipts);
+  const connections = getConnectionStates(receipts);
+
+  if (receipts.length === 0) {
+    return (
+      <Card padding="none" className="animate-fade-up">
+        <EmptyState
+          icon={<IconChart />}
+          title={t('home.emptyTitle')}
+          description={t('home.emptyDescription')}
+          actionLabel={t('home.emptyCta')}
+          onAction={onNavigateCapture}
+        />
+      </Card>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-blue-600 text-white rounded-2xl p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide opacity-70">Total Spend</p>
-          <p className="text-2xl font-bold mt-1">${total.toFixed(2)}</p>
-          <p className="text-xs opacity-60 mt-1">
-            {receipts.length} receipt{receipts.length !== 1 ? 's' : ''}
-          </p>
-        </div>
+    <div className="space-y-5 animate-fade-up">
+      <Card padding="lg" className="bg-brand-600 border-brand-700/30 text-white !shadow-card-hover">
+        <p className="text-xs font-medium uppercase tracking-wider opacity-80">
+          {t('home.totalSpend')}
+        </p>
+        <Amount
+          value={total}
+          locale={locale}
+          currency={currency}
+          size="hero"
+          className="!text-white mt-1"
+        />
+        <p className="text-sm opacity-70 mt-2">
+          {t('home.receiptsTracked', { count: receipts.length })}
+        </p>
+      </Card>
 
-        <div className="bg-emerald-500 text-white rounded-2xl p-4 shadow-sm">
-          <p className="text-xs uppercase tracking-wide opacity-70">Items Tracked</p>
-          <p className="text-2xl font-bold mt-1">{itemCount}</p>
-          <p className="text-xs opacity-60 mt-1">
-            {summaries.length} categor{summaries.length !== 1 ? 'ies' : 'y'}
-          </p>
-        </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Card padding="md">
+          <p className="text-xs text-ink-muted">{t('home.itemsTracked')}</p>
+          <p className="text-2xl font-bold text-ink tabular-nums mt-1">{itemCount}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-xs text-ink-muted">{t('home.activeCategories')}</p>
+          <p className="text-2xl font-bold text-ink tabular-nums mt-1">{summaries.length}</p>
+        </Card>
       </div>
 
-      {receipts.length === 0 ? (
-        <div className="bg-white rounded-2xl p-10 text-center shadow-sm">
-          <div className="text-5xl mb-3">🧾</div>
-          <p className="font-semibold text-gray-600">No receipts yet</p>
-          <p className="text-sm text-gray-400 mt-1">
-            Scan your first receipt to see spending insights
-          </p>
-        </div>
-      ) : (
-        <CategoryBreakdown summaries={summaries} totalSpend={total} />
-      )}
+      <section>
+        <SectionHeader title={t('home.connections')} />
+        <ConnectionsPanel connections={connections} compact />
+      </section>
+
+      <CategoryBreakdown summaries={summaries} totalSpend={total} />
     </div>
   );
 }
+

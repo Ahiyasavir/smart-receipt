@@ -37,3 +37,4 @@ export default function RawOCRView({ rawText, onTextChange, startExpanded = fals
     </div>
   );
 }
+

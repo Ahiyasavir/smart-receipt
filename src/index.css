@@ -1,18 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Remove tap highlight on mobile */
+@layer base {
+  :root {
+    --color-brand: #1d5b5e;
+    --color-brand-light: #387b7e;
+    --color-surface: #f6f7f6;
+    --color-card: #ffffff;
+    --color-border: #e4e8e7;
+    --color-ink: #1a2324;
+    --color-ink-muted: #7a8688;
+  }
+
+  html {
+    @apply font-sans text-ink antialiased;
+  }
+
+  body {
+    @apply bg-surface;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pressable {
+    @apply transition-all duration-150 active:scale-[0.98];
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      #eef0ef 0%,
+      #f8f9f8 50%,
+      #eef0ef 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer rounded-lg;
+  }
+}
+
 * {
   -webkit-tap-highlight-color: transparent;
 }
 
-body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* iOS safe area for bottom nav */
 .safe-area-inset-bottom {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

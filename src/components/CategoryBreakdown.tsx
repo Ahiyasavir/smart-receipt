@@ -1,4 +1,10 @@
+import { useTranslation } from 'react-i18next';
 import { CategorySummary } from '../types';
+import { usePreferences } from '../hooks/usePreferences';
+import Card from './ui/Card';
+import Amount from './ui/Amount';
+import ProgressBar from './ui/ProgressBar';
+import SectionHeader from './ui/SectionHeader';
 
 interface Props {
   summaries: CategorySummary[];
@@ -6,52 +12,53 @@ interface Props {
 }
 
 export default function CategoryBreakdown({ summaries, totalSpend }: Props) {
+  const { t } = useTranslation();
+  const { locale, currency } = usePreferences();
+
   if (summaries.length === 0) {
-    return (
-      <div className="bg-white rounded-2xl p-8 text-center shadow-sm">
-        <p className="text-gray-400 text-sm">No category data yet</p>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100">
-        <h3 className="font-semibold text-gray-800 text-sm">Category Breakdown</h3>
-      </div>
-
-      <ul className="divide-y divide-gray-50">
-        {summaries.map((s) => {
-          const pct = totalSpend > 0 ? (s.total / totalSpend) * 100 : 0;
-          return (
-            <li key={s.category} className="px-4 py-3 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{s.emoji}</span>
-                  <span className="text-sm font-medium text-gray-700">{s.label}</span>
-                  <span className="text-xs text-gray-400">({s.count})</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-semibold text-gray-900 text-sm">
-                    ${s.total.toFixed(2)}
+    <section>
+      <SectionHeader title={t('home.categoryBreakdown')} />
+      <Card padding="none" className="overflow-hidden">
+        <ul className="divide-y divide-[var(--color-border)]">
+          {summaries.map((s) => {
+            const pct = totalSpend > 0 ? (s.total / totalSpend) * 100 : 0;
+            return (
+              <li key={s.category} className="px-4 py-3.5 space-y-2">
+                <span className="flex items-center justify-between gap-3 w-full">
+                  <span className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: s.color }}
+                    />
+                    <span className="text-sm font-medium text-ink truncate">
+                      {t(`categories.${s.category}`)}
+                    </span>
+                    <span className="text-xs text-ink-faint shrink-0">
+                      ({s.count})
+                    </span>
                   </span>
-                  <span className="text-xs text-gray-400 ml-1">
-                    {pct.toFixed(0)}%
+                  <span className="text-end shrink-0 flex flex-col items-end">
+                    <Amount
+                      value={s.total}
+                      locale={locale}
+                      currency={currency}
+                      size="sm"
+                    />
+                    <span className="text-xs text-ink-faint">
+                      {pct.toFixed(0)}%
+                    </span>
                   </span>
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              <div className="w-full bg-gray-100 rounded-full h-1.5">
-                <div
-                  className="h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${pct}%`, backgroundColor: s.color }}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+                </span>
+                <ProgressBar value={pct} color={s.color} />
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+    </section>
   );
 }

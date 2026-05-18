@@ -8,11 +8,11 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Receipt Scanner',
-        short_name: 'Receipts',
-        description: 'Scan and categorize your receipts locally',
-        theme_color: '#3B82F6',
-        background_color: '#F9FAFB',
+        name: 'Spendora',
+        short_name: 'Spendora',
+        description: 'Personal spending intelligence and automatic expense tracking',
+        theme_color: '#1d5b5e',
+        background_color: '#f6f7f6',
         display: 'standalone',
         icons: [
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },

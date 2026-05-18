@@ -68,3 +68,4 @@ export default function ParserDebugPanel({ lines }: Props) {
     </div>
   );
 }
+

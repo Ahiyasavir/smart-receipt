@@ -1,12 +1,19 @@
 import React, { useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Receipt, ReceiptItem } from '../types';
 import { runOCR } from '../utils/ocr';
 import { parseReceiptText, ParseResult } from '../utils/receiptParser';
 import { classifyFailureMode, getScanExplanation, ScanDiagnostic } from '../utils/scanDiagnostics';
 import { MOCK_RECEIPT_TEXT } from '../utils/mockReceipt';
+import { usePreferences } from '../hooks/usePreferences';
 import ItemList from './ItemList';
 import RawOCRView from './RawOCRView';
 import ParserDebugPanel from './ParserDebugPanel';
+import Button from './ui/Button';
+import Card from './ui/Card';
+import ProgressBar from './ui/ProgressBar';
+import Amount from './ui/Amount';
+import { IconReceipt } from './icons/NavIcons';
 
 // ─── MVP scope ───────────────────────────────────────────────────────────────
 // Supported: clear printed English supermarket receipts, flat and well-lit.
@@ -34,7 +41,10 @@ function buildDraft(rawText: string): { receipt: Receipt; result: ParseResult } 
 }
 
 export default function ReceiptUploader({ onSave }: Props) {
+  const { t } = useTranslation();
+  const { locale, currency, showDebug } = usePreferences();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [savedFlash, setSavedFlash] = useState(false);
 
   const [scanState,      setScanState]      = useState<ScanState>('idle');
   const [progress,       setProgress]       = useState(0);
@@ -121,8 +131,12 @@ export default function ReceiptUploader({ onSave }: Props) {
 
   const handleSave = () => {
     if (!draft) return;
+    setSavedFlash(true);
     onSave({ ...draft, imageDataUrl: undefined });
-    reset();
+    setTimeout(() => {
+      reset();
+      setSavedFlash(false);
+    }, 600);
   };
 
   /* ── Idle / Error ───────────────────────────────────────────── */
@@ -145,23 +159,25 @@ export default function ReceiptUploader({ onSave }: Props) {
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
           onClick={() => fileRef.current?.click()}
-          className="border-2 border-dashed border-blue-300 rounded-2xl p-8 text-center cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors select-none"
+          className="w-full border-2 border-dashed border-brand-200 rounded-2xl p-10 text-center cursor-pointer hover:bg-brand-50/50 hover:border-brand-300 transition-colors select-none pressable"
         >
-          <div className="text-4xl mb-2">📄</div>
-          <p className="text-gray-700 font-semibold">Upload receipt image</p>
-          <p className="text-xs text-gray-400 mt-1">JPG · PNG · HEIC · drag &amp; drop</p>
+          <span className="inline-flex w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 items-center justify-center mb-3 mx-auto">
+            <IconReceipt />
+          </span>
+          <p className="text-ink font-semibold">{t('capture.uploadTitle')}</p>
+          <p className="text-xs text-ink-muted mt-1">{t('capture.uploadHint')}</p>
         </div>
 
         <button
           onClick={handleMockScan}
-          className="w-full text-blue-600 text-sm text-center py-2 hover:underline"
+          className="w-full text-brand-600 text-sm text-center py-2 hover:underline"
         >
-          Use sample receipt (for testing)
+          {t('capture.mockReceipt')}
         </button>
 
         {scanState === 'error' && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-700">
-            OCR could not run on this file. Try a different image format or a smaller file.
+            {t('capture.ocrError')}
           </div>
         )}
 
@@ -189,15 +205,10 @@ export default function ReceiptUploader({ onSave }: Props) {
         )}
         <div className="bg-white rounded-2xl p-6 shadow-sm text-center space-y-3">
           <div className="text-3xl animate-pulse">🔍</div>
-          <p className="font-semibold text-gray-700">Reading receipt…</p>
-          <p className="text-xs text-gray-400 capitalize">{progressStatus || 'preparing…'}</p>
-          <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-            <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <p className="text-sm text-gray-500">{progress}%</p>
+          <p className="font-semibold text-ink">{t('capture.scanning')}</p>
+          <p className="text-xs text-ink-muted capitalize">{progressStatus || 'preparing…'}</p>
+          <ProgressBar value={progress} className="h-2" />
+          <p className="text-sm text-ink-faint tabular-nums">{progress}%</p>
         </div>
       </div>
     );
@@ -235,7 +246,7 @@ export default function ReceiptUploader({ onSave }: Props) {
         {/* Raw OCR text — expanded so the user can see what was actually extracted */}
         <RawOCRView rawText={rawText} onTextChange={handleRawTextChange} startExpanded />
 
-        {parseResult?.classifiedLines && parseResult.classifiedLines.length > 0 && (
+        {showDebug && parseResult?.classifiedLines && parseResult.classifiedLines.length > 0 && (
           <ParserDebugPanel lines={parseResult.classifiedLines} />
         )}
 
@@ -360,13 +371,19 @@ export default function ReceiptUploader({ onSave }: Props) {
       )}
 
       {/* Detected total */}
-      <div className="bg-blue-600 text-white rounded-2xl p-4 text-center">
+      <Card padding="lg" className="bg-brand-600 border-0 text-white text-center">
         <p className="text-xs uppercase tracking-wide opacity-70">
           {parseResult.mismatch ? 'Receipt Total' : 'Total'}
         </p>
-        <p className="text-3xl font-bold">${draft.total.toFixed(2)}</p>
-        <p className="text-sm opacity-60 mt-0.5">{draft.storeName}</p>
-      </div>
+        <Amount
+          value={draft.total}
+          locale={locale}
+          currency={currency}
+          size="lg"
+          className="!text-white mt-1"
+        />
+        <p className="text-sm opacity-70 mt-0.5">{draft.storeName}</p>
+      </Card>
 
       {/* Scan quality summary — compact one-line indicator for good scans with caveats */}
       {mode === 'partial' && !parseResult.isIncomplete && !parseResult.mismatch && (
@@ -387,24 +404,19 @@ export default function ReceiptUploader({ onSave }: Props) {
       {/* Raw OCR for manual correction */}
       <RawOCRView rawText={rawText} onTextChange={handleRawTextChange} />
 
-      {parseResult?.classifiedLines && parseResult.classifiedLines.length > 0 && (
+      {showDebug && parseResult?.classifiedLines && parseResult.classifiedLines.length > 0 && (
         <ParserDebugPanel lines={parseResult.classifiedLines} />
       )}
 
       <div className="flex gap-2">
-        <button
-          onClick={reset}
-          className="flex-1 border border-gray-300 text-gray-600 py-3 rounded-xl font-medium hover:bg-gray-50"
-        >
-          Discard
-        </button>
-        <button
-          onClick={handleSave}
-          className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700"
-        >
-          Save Receipt
-        </button>
+        <Button variant="secondary" fullWidth onClick={reset}>
+          {t('capture.discard')}
+        </Button>
+        <Button variant="primary" fullWidth onClick={handleSave}>
+          {savedFlash ? t('capture.saved') : t('capture.save')}
+        </Button>
       </div>
     </div>
   );
 }
+
