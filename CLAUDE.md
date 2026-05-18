@@ -1,4 +1,16 @@
-# SmartReceipt — Project Guide for Claude
+# Spendora — Project Guide for Claude
+
+> **Brand:** the product is **Spendora** (premium spending-insights, not a
+> "receipt scanner"). Logo: `public/spendora-logo.png` (horizontal wordmark;
+> use `dark:brightness-0 dark:invert` on dark backgrounds). Accent: teal
+> (`teal-700` / theme `#155E63`). Positioning: "Automatically track, organize,
+> and understand your spending." Visible copy uses *spending / transactions /
+> activity / insights* — never receipt-first.
+> **Do NOT rename internal `smartreceipt_*` localStorage keys or the
+> `inbound.smartreceipt.app` fallback** — they are data-continuity / infra
+> identifiers, not brand surfaces.
+
+
 
 A PWA that tracks spending from **two independent input channels**:
 1. **OCR receipt scanning** (camera/photo → parsed items) — the original feature.

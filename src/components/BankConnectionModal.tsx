@@ -466,7 +466,7 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
                 <p>
                   Auto sync uses the open-source <strong>israeli-bank-scrapers</strong> library running
                   as a GitHub Actions workflow. It logs into your bank, fetches transactions, and writes
-                  them directly to your SmartReceipt account every 6 hours.
+                  them directly to your Spendora account every 6 hours.
                 </p>
               </div>
 

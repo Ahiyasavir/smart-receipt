@@ -29,9 +29,9 @@ import { exportReceiptsCsv } from './utils/csvExport';
 import { CATEGORY_META } from './utils/categoryClassifier';
 
 const NAV_TABS = [
-  { id: 'scan'      as const, label: 'Scan',      icon: '📷' },
-  { id: 'dashboard' as const, label: 'Dashboard',  icon: '📊' },
-  { id: 'history'   as const, label: 'History',    icon: '🗂️'  },
+  { id: 'scan'      as const, label: 'Add',       icon: '📷' },
+  { id: 'dashboard' as const, label: 'Insights',   icon: '📊' },
+  { id: 'history'   as const, label: 'Activity',   icon: '🗂️'  },
   { id: 'settings'  as const, label: 'Settings',   icon: '⚙️'  },
 ];
 
@@ -244,7 +244,11 @@ export default function App() {
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className={`${dm ? 'bg-gray-800' : 'bg-white'} shadow-sm sticky top-0 z-40`}>
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className={`text-lg font-bold ${dm ? 'text-white' : 'text-gray-900'}`}>🧾 SmartReceipt</h1>
+          <img
+            src="/spendora-logo.png"
+            alt="Spendora"
+            className={`h-7 w-auto ${dm ? 'brightness-0 invert' : ''}`}
+          />
           <div className="flex items-center gap-2">
             <button
               onClick={() => setDarkMode((v) => !v)}
@@ -270,7 +274,7 @@ export default function App() {
       {/* ── Install banner ───────────────────────────────────────── */}
       {showInstallBanner && (
         <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center justify-between max-w-lg mx-auto">
-          <p className="text-sm font-medium">Add SmartReceipt to your home screen</p>
+          <p className="text-sm font-medium">Add Spendora to your home screen</p>
           <div className="flex gap-2 ml-3 shrink-0">
             <button onClick={() => setShowInstallBanner(false)} className="text-white/70 hover:text-white text-xs">Later</button>
             <button onClick={handleInstall} className="bg-white text-blue-600 text-xs font-semibold px-3 py-1 rounded-full">Install</button>
@@ -401,11 +405,11 @@ export default function App() {
             {/* Empty states */}
             {!receiptsLoading && receipts.length === 0 && (
               <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-10 text-center shadow-sm`}>
-                <div className="text-4xl mb-3">🗂️</div>
-                <p className={`font-semibold text-sm ${dm ? 'text-gray-200' : 'text-gray-700'}`}>No receipts yet</p>
-                <p className="text-xs text-gray-400 mt-1 mb-4">Scan a receipt or import from your bank</p>
-                <button onClick={() => switchTab('scan')} className="bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors">
-                  Scan first receipt
+                <div className="text-4xl mb-3">📈</div>
+                <p className={`font-semibold text-sm ${dm ? 'text-gray-200' : 'text-gray-700'}`}>No spending tracked yet</p>
+                <p className="text-xs text-gray-400 mt-1 mb-4">Add a purchase or connect your bank to start seeing your spending</p>
+                <button onClick={() => switchTab('scan')} className="bg-teal-700 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-teal-800 transition-colors">
+                  Add a purchase
                 </button>
               </div>
             )}
@@ -644,7 +648,7 @@ export default function App() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm text-gray-800 dark:text-white truncate">{user.email}</p>
-                  <p className="text-xs text-gray-400">{receipts.length} receipt{receipts.length !== 1 ? 's' : ''} synced</p>
+                  <p className="text-xs text-gray-400">{receipts.length} transaction{receipts.length !== 1 ? 's' : ''} synced</p>
                 </div>
               </div>
               <div className="px-4 pb-3">
@@ -767,7 +771,7 @@ export default function App() {
                   <span className="text-xl">⬇️</span>
                   <div>
                     <p className="text-sm font-medium text-gray-800 dark:text-white">Export all to CSV</p>
-                    <p className="text-xs text-gray-400">Download {receipts.length} receipt{receipts.length !== 1 ? 's' : ''} as spreadsheet</p>
+                    <p className="text-xs text-gray-400">Download {receipts.length} transaction{receipts.length !== 1 ? 's' : ''} as spreadsheet</p>
                   </div>
                 </button>
                 <button onClick={() => setBankConnectOpen(true)}
@@ -820,7 +824,7 @@ export default function App() {
               <div className="px-4 py-3 space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500 dark:text-gray-400">App</span>
-                  <span className="font-medium text-gray-800 dark:text-white">SmartReceipt</span>
+                  <span className="font-medium text-gray-800 dark:text-white">Spendora</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500 dark:text-gray-400">OCR engine</span>

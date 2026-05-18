@@ -37,7 +37,7 @@ export function exportReceiptsCsv(receipts: Receipt[]): void {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `smartreceipt-export-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `spendora-export-${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
