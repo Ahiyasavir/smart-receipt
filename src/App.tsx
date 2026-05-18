@@ -20,6 +20,7 @@ import BankConnectionModal from './components/BankConnectionModal';
 import EmailSetupGuide from './components/EmailSetupGuide';
 import BankBadge from './components/BankBadge';
 import { SkeletonList } from './components/Skeleton';
+import BankSyncStatus from './components/BankSyncStatus';
 import { useBankConnections } from './hooks/useBankConnections';
 import { useMerchantOverrides } from './hooks/useMerchantOverrides';
 import { merchantKey } from './utils/merchantNormalizer';
@@ -298,6 +299,7 @@ export default function App() {
 
       {/* ── Page content ────────────────────────────────────────── */}
       <main className="max-w-lg mx-auto px-4 py-4 pb-28">
+        <div key={`${tab}:${selectedReceipt?.id ?? 'list'}`} className="animate-fade-slide">
 
         {/* SCAN tab */}
         {tab === 'scan' && (
@@ -752,7 +754,7 @@ export default function App() {
                   <span className="text-xl">📧</span>
                   <div>
                     <p className="text-sm font-medium text-gray-800 dark:text-white">Auto-track via email</p>
-                    <p className="text-xs text-gray-400">Scan bank alert emails — no passwords</p>
+                    <BankSyncStatus userId={userId} />
                   </div>
                 </button>
               </div>
@@ -800,6 +802,7 @@ export default function App() {
             </div>
           </div>
         )}
+        </div>
       </main>
 
       {/* ── Modals ──────────────────────────────────────────────── */}
@@ -835,7 +838,8 @@ export default function App() {
         <div className="max-w-lg mx-auto flex">
           {NAV_TABS.map(({ id, label, icon }) => (
             <button key={id} onClick={() => switchTab(id)}
-              className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-colors ${
+              aria-current={tab === id ? 'page' : undefined}
+              className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-all active:scale-95 ${
                 tab === id ? 'text-blue-600' : dm ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
               }`}>
               <span className="relative text-xl leading-none">
