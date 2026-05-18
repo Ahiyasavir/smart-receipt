@@ -6,7 +6,7 @@
  * category highlighted plus a total summary. Dark-mode aware, mobile-first,
  * deterministic (no AI), prefers-reduced-motion respected (via CSS).
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Receipt } from '../types';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { buildCategorySummaries } from '../utils/summaries';
@@ -19,7 +19,10 @@ interface Props {
 
 export default function CategoryBreakdown({ receipts, title = 'Spending by category' }: Props) {
   const { fmt } = useCurrency();
-  const { summaries, total } = buildCategorySummaries(receipts);
+  const { summaries, total } = useMemo(
+    () => buildCategorySummaries(receipts),
+    [receipts],
+  );
 
   // Animate bars from 0 → width on mount.
   const [grown, setGrown] = useState(false);

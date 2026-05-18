@@ -307,7 +307,9 @@ Deno.serve(async (req: Request) => {
       .select('id');
     if (error) {
       // FK violation here means the uuid isn't a real user — reject cleanly.
-      return json({ error: 'persist_failed', detail: error.message }, 400);
+      // Internal DB detail is logged server-side only, never returned.
+      console.error(JSON.stringify({ evt: 'persist_failed', code: error.code ?? null }));
+      return json({ error: 'persist_failed' }, 400);
     }
 
     const inserted = data?.length ?? 0;
@@ -322,6 +324,8 @@ Deno.serve(async (req: Request) => {
 
     return json({ ok: true, parsed: true, inserted, duplicate: inserted === 0 });
   } catch (e) {
-    return json({ error: 'exception', detail: String(e) }, 500);
+    // Never leak internals/stack to the caller; log server-side only.
+    console.error(JSON.stringify({ evt: 'webhook_exception', msg: String(e).slice(0, 200) }));
+    return json({ error: 'internal_error' }, 500);
   }
 });
