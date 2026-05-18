@@ -8,10 +8,10 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'SmartReceipt',
-        short_name: 'SmartReceipt',
-        description: 'Scan receipts, track spending, stay on budget',
-        theme_color: '#3B82F6',
+        name: 'Spendora',
+        short_name: 'Spendora',
+        description: 'Automatically track, organize, and understand your spending',
+        theme_color: '#155E63',
         background_color: '#F9FAFB',
         display: 'standalone',
         icons: [

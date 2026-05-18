@@ -39,8 +39,7 @@ export default function ProfileSelector({ profiles, onSelect, onCreateAndSelect 
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-6 py-12">
-      <div className="text-5xl mb-3">🧾</div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-1">SmartReceipt</h1>
+      <img src="/spendora-logo.png" alt="Spendora" className="h-9 w-auto mb-3" />
       <p className="text-gray-400 text-sm mb-8">
         {creating ? 'Create your profile to get started' : 'Who\'s using the app?'}
       </p>

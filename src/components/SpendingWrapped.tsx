@@ -72,7 +72,7 @@ export default function SpendingWrapped({ receipts, onClose }: Props) {
     };
 
     // App name
-    centeredText('🧾 SmartReceipt', 80, 22, '600', 'rgba(255,255,255,0.6)');
+    centeredText('Spendora', 80, 22, '600', 'rgba(255,255,255,0.6)');
 
     // Month title
     centeredText(`${stats.monthName} Recap`, 140, 36, '700');
@@ -121,7 +121,7 @@ export default function SpendingWrapped({ receipts, onClose }: Props) {
     centeredText('spending category this month', 588, 22, '500', 'rgba(255,255,255,0.8)');
 
     // CTA
-    centeredText('Track yours at smartreceipt.netlify.app', 820, 18, '400', 'rgba(255,255,255,0.45)');
+    centeredText('Track yours with Spendora', 820, 18, '400', 'rgba(255,255,255,0.45)');
   }, [stats]);
 
   useEffect(() => { draw(); }, [draw]);

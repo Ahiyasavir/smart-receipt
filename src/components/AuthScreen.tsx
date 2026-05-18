@@ -44,9 +44,10 @@ export default function AuthScreen() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-5xl mb-2">🧾</div>
-          <h1 className="text-2xl font-bold text-gray-900">SmartReceipt</h1>
-          <p className="text-sm text-gray-500 mt-1">Scan receipts, track spending, stay on budget</p>
+          <img src="/spendora-logo.png" alt="Spendora" className="h-10 w-auto mx-auto mb-3" />
+          <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+            Automatically track, organize, and understand your spending
+          </p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm p-6">

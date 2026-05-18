@@ -224,15 +224,15 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
   if (receipts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-        <div className="text-6xl">🧾</div>
+        <div className="text-6xl">📈</div>
         <div>
-          <p className="font-semibold text-gray-700 dark:text-gray-200 text-lg">No receipts yet</p>
-          <p className="text-sm text-gray-400 mt-1">Scan a receipt or connect your bank to see spending insights</p>
+          <p className="font-semibold text-gray-700 dark:text-gray-200 text-lg">No spending yet</p>
+          <p className="text-sm text-gray-400 mt-1">Connect your bank or add a purchase to see your spending insights</p>
         </div>
         <div className="flex gap-2 mt-2">
           {onGoToScan && (
-            <button onClick={onGoToScan} className="bg-blue-600 text-white px-5 py-2.5 rounded-2xl font-semibold text-sm shadow-sm hover:bg-blue-700 transition-colors">
-              Scan Receipt
+            <button onClick={onGoToScan} className="bg-teal-700 text-white px-5 py-2.5 rounded-2xl font-semibold text-sm shadow-sm hover:bg-teal-800 transition-colors">
+              Add a purchase
             </button>
           )}
           {onOpenBankConnect && (
