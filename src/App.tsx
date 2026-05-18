@@ -19,6 +19,7 @@ import BudgetModal from './components/BudgetModal';
 import BankConnectionModal from './components/BankConnectionModal';
 import EmailSetupGuide from './components/EmailSetupGuide';
 import BankBadge from './components/BankBadge';
+import CategoryBreakdown from './components/CategoryBreakdown';
 import { SkeletonList } from './components/Skeleton';
 import BankSyncStatus from './components/BankSyncStatus';
 import { useBankConnections } from './hooks/useBankConnections';
@@ -416,6 +417,11 @@ export default function App() {
               </div>
             )}
 
+            {/* Premium month/category analytics for the current view */}
+            {!receiptsLoading && filteredReceipts.length > 0 && (
+              <CategoryBreakdown receipts={filteredReceipts} title="This view" />
+            )}
+
             {/* Receipt list */}
             {!receiptsLoading && filteredReceipts.map((r) => (
               <button
@@ -480,6 +486,36 @@ export default function App() {
               <p className="text-sm opacity-60">{new Date(selectedReceipt.date).toLocaleString()}</p>
               <p className="text-3xl font-bold mt-1">{fmt(selectedReceipt.total)}</p>
             </div>
+
+            {/* Provenance & confidence — transparency cues */}
+            {(() => {
+              const confs = selectedReceipt.items
+                .map((i) => i.confidence)
+                .filter((n): n is number => typeof n === 'number');
+              const avg = confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : null;
+              const src = selectedReceipt.source;
+              const provenance =
+                src === 'bank-sync'   ? { icon: '🏦', text: 'Parsed automatically from a bank email' }
+              : src === 'bank-import' ? { icon: '📂', text: 'Imported from a bank statement' }
+              :                          { icon: '📷', text: 'Scanned from a photo receipt' };
+              const lowConf = avg !== null && avg < 0.6;
+              return (
+                <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm p-4 flex items-start gap-3`}>
+                  <span className="text-lg leading-none shrink-0">{provenance.icon}</span>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-medium ${dm ? 'text-gray-200' : 'text-gray-700'}`}>
+                      {provenance.text}
+                    </p>
+                    {avg !== null && (
+                      <p className={`text-xs mt-0.5 ${lowConf ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>
+                        {lowConf ? '⚠ ' : ''}Detected with {Math.round(avg * 100)}% confidence
+                        {lowConf ? ' — tap an item to verify the category' : ''}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <ItemList items={selectedReceipt.items} onItemChange={(item) => {
               // Persist category correction as merchant override for bank transactions
