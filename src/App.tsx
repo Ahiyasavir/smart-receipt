@@ -523,18 +523,38 @@ export default function App() {
 
         {/* HISTORY tab — detail view */}
         {tab === 'history' && selectedReceipt && (
-          <div className="space-y-4">
-            <button onClick={() => setSelectedReceipt(null)} className="flex items-center gap-1 text-blue-600 text-sm font-medium">
-              ← Back
+          <div
+            className="space-y-4"
+            style={{ animation: 'fade-slide var(--dur-base) var(--ease-out-soft) both' }}
+          >
+            <button
+              onClick={() => setSelectedReceipt(null)}
+              className="s-pressable flex items-center gap-1"
+              style={{ font: '600 14px var(--font-sans)', color: 'var(--ink-muted)' }}
+            >
+              <span style={{ fontSize: 16 }}>‹</span> Spends
             </button>
 
-            <div className="bg-blue-600 text-white rounded-2xl p-4">
+            {/* Detail header — sheet/brand-gradient language */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, var(--brand-600), var(--brand-700))',
+                borderRadius: 'var(--radius-lg)',
+                padding: 'var(--space-5)',
+                color: 'var(--ink-on-brand)',
+                boxShadow: 'var(--shadow-card)',
+              }}
+            >
               <div className="flex items-center gap-2">
-                <p className="font-bold text-lg">{selectedReceipt.storeName}</p>
+                <p style={{ font: '700 17px var(--font-sans)' }}>{selectedReceipt.storeName}</p>
                 <BankBadge source={selectedReceipt.source} variant="header" />
               </div>
-              <p className="text-sm opacity-60">{new Date(selectedReceipt.date).toLocaleString()}</p>
-              <p className="text-3xl font-bold mt-1">{fmtFrom(selectedReceipt.total, selectedReceipt.currency)}</p>
+              <p style={{ font: '400 12px var(--font-sans)', color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
+                {new Date(selectedReceipt.date).toLocaleString()}
+              </p>
+              <div className="s-amount-hero" style={{ color: 'var(--ink-on-brand)', marginTop: 'var(--space-1)' }}>
+                {fmtFrom(selectedReceipt.total, selectedReceipt.currency)}
+              </div>
             </div>
 
             {/* Provenance & confidence — transparency cues */}
@@ -550,14 +570,28 @@ export default function App() {
               :                          { icon: '📷', text: 'Scanned from a photo receipt' };
               const lowConf = avg !== null && avg < 0.6;
               return (
-                <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm p-4 flex items-start gap-3`}>
+                <div
+                  className="flex items-start gap-3"
+                  style={{
+                    background: 'var(--surface-card)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: 'var(--shadow-card)',
+                    padding: 'var(--space-4)',
+                  }}
+                >
                   <span className="text-lg leading-none shrink-0">{provenance.icon}</span>
                   <div className="min-w-0">
-                    <p className={`text-sm font-medium ${dm ? 'text-gray-200' : 'text-gray-700'}`}>
+                    <p style={{ font: '500 14px var(--font-sans)', color: 'var(--ink)' }}>
                       {provenance.text}
                     </p>
                     {avg !== null && (
-                      <p className={`text-xs mt-0.5 ${lowConf ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>
+                      <p
+                        style={{
+                          font: '400 12px var(--font-sans)', marginTop: 2,
+                          color: lowConf ? 'var(--status-warning)' : 'var(--ink-muted)',
+                        }}
+                      >
                         {lowConf ? '⚠ ' : ''}Detected with {Math.round(avg * 100)}% confidence
                         {lowConf ? ' — tap an item to verify the category' : ''}
                       </p>
