@@ -4,6 +4,7 @@ import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { getStoredLanguage, getDir } from './i18n';
+import './styles/tokens.css';
 import './index.css';
 
 // Apply persisted language + direction before first paint (RTL for Hebrew).
