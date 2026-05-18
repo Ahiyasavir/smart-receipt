@@ -7,6 +7,7 @@
  *
  * Returns null for OCR scans (no badge), so it's safe to drop in anywhere.
  */
+import { memo } from 'react';
 import type { Receipt } from '../types';
 
 interface Props {
@@ -15,7 +16,7 @@ interface Props {
   variant?: 'inline' | 'header';
 }
 
-export default function BankBadge({ source, variant = 'inline' }: Props) {
+function BankBadge({ source, variant = 'inline' }: Props) {
   if (source !== 'bank-sync' && source !== 'bank-import') return null;
 
   if (variant === 'header') {
@@ -46,3 +47,5 @@ export default function BankBadge({ source, variant = 'inline' }: Props) {
     </span>
   );
 }
+
+export default memo(BankBadge);

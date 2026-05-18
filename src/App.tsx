@@ -107,7 +107,7 @@ export default function App() {
 
   useEffect(() => { setConfirmDelete(false); }, [selectedReceipt]);
 
-  const { receipts, loading: receiptsLoading, addReceipt, updateItem, updateReceipt, removeReceipt } = useReceipts(userId);
+  const { receipts, loading: receiptsLoading, loadError: receiptsLoadError, retryLoad: retryReceipts, addReceipt, updateItem, updateReceipt, removeReceipt } = useReceipts(userId);
   const { budgets, updateBudgets, emailDigest, setEmailDigestPref } = useBudgets(userId);
   const { connections: bankConnections, upsertConnection } = useBankConnections(userId);
   const { overrides: merchantOverrides, saveOverride } = useMerchantOverrides(userId);
@@ -402,8 +402,20 @@ export default function App() {
             {/* Loading skeleton */}
             {receiptsLoading && <SkeletonList count={4} />}
 
+            {/* Graceful load failure — never a blank screen */}
+            {!receiptsLoading && receiptsLoadError && (
+              <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-8 text-center shadow-sm`}>
+                <div className="text-3xl mb-2">⚠️</div>
+                <p className={`font-semibold text-sm ${dm ? 'text-gray-200' : 'text-gray-700'}`}>Couldn’t load your spending</p>
+                <p className="text-xs text-gray-400 mt-1 mb-4">Check your connection — your data is safe.</p>
+                <button onClick={retryReceipts} className="bg-teal-700 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-teal-800 transition-colors">
+                  Try again
+                </button>
+              </div>
+            )}
+
             {/* Empty states */}
-            {!receiptsLoading && receipts.length === 0 && (
+            {!receiptsLoading && !receiptsLoadError && receipts.length === 0 && (
               <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-10 text-center shadow-sm`}>
                 <div className="text-4xl mb-3">📈</div>
                 <p className={`font-semibold text-sm ${dm ? 'text-gray-200' : 'text-gray-700'}`}>No spending tracked yet</p>

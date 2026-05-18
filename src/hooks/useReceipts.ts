@@ -36,21 +36,31 @@ function rowToReceipt(row: ReceiptRow): Receipt {
 export function useReceipts(userId: string) {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading,  setLoading]  = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
+
+  /** Lets the UI offer an explicit "Try again" after a load failure. */
+  const retryLoad = useCallback(() => setReloadTick((n) => n + 1), []);
 
   useEffect(() => {
     if (!userId) { setReceipts([]); setLoading(false); return; }
     setLoading(true);
+    setLoadError(false);
     supabase
       .from('receipts')
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false })
       .then(({ data, error }) => {
-        if (error) { console.error('receipts load:', error.message); }
-        else { setReceipts((data as ReceiptRow[]).map(rowToReceipt)); }
+        if (error) {
+          console.error('receipts load failed');
+          setLoadError(true);
+        } else {
+          setReceipts((data as ReceiptRow[]).map(rowToReceipt));
+        }
         setLoading(false);
       });
-  }, [userId]);
+  }, [userId, reloadTick]);
 
   /**
    * Insert a receipt. Receipts that carry an `externalId` (bank sync / CSV
@@ -128,5 +138,5 @@ export function useReceipts(userId: string) {
     setReceipts((prev) => prev.filter((r) => r.id !== id));
   }, [userId]);
 
-  return { receipts, loading, addReceipt, updateReceipt, updateItem, removeReceipt };
+  return { receipts, loading, loadError, retryLoad, addReceipt, updateReceipt, updateItem, removeReceipt };
 }
