@@ -252,13 +252,32 @@ async function resolveUser(to: string): Promise<string | null> {
   return um ? um[1].toLowerCase() : null;
 }
 
+/**
+ * Constant-time string compare for the webhook secret. A plain `!==` exits at
+ * the first differing byte, leaking secret length/prefix via response timing;
+ * this iterates the full max length regardless so timing is independent of how
+ * much of the token matched. Dependency-free.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  const max = Math.max(ab.length, bb.length);
+  let diff = ab.length ^ bb.length;
+  for (let i = 0; i < max; i++) diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  return diff === 0;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
-  // Shared-secret gate (query token or header).
+  // Shared-secret gate (query token or header), constant-time to avoid a
+  // timing side-channel on the secret.
   const url = new URL(req.url);
   const token = url.searchParams.get('token') ?? req.headers.get('x-webhook-secret') ?? '';
-  if (!WEBHOOK_SECRET || token !== WEBHOOK_SECRET) return json({ error: 'unauthorized' }, 401);
+  if (!WEBHOOK_SECRET || !timingSafeEqual(token, WEBHOOK_SECRET)) {
+    return json({ error: 'unauthorized' }, 401);
+  }
 
   try {
     const { to, messageId, body } = await readInbound(req);
