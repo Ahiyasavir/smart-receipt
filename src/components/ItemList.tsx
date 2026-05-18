@@ -9,11 +9,13 @@ interface Props {
   items: ReceiptItem[];
   onItemChange?: (item: ReceiptItem) => void;
   editable?: boolean;
+  /** Original currency of the parent spend; amounts convert to display. */
+  currency?: string | null;
 }
 
-export default function ItemList({ items, onItemChange, editable = false }: Props) {
+export default function ItemList({ items, onItemChange, editable = false, currency }: Props) {
   const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
-  const { fmt } = useCurrency();
+  const { fmtFrom } = useCurrency();
 
   const handleSave = (updated: ReceiptItem) => {
     onItemChange?.(updated);
@@ -73,7 +75,7 @@ export default function ItemList({ items, onItemChange, editable = false }: Prop
                 </div>
 
                 <span className="font-semibold text-gray-900 text-sm shrink-0">
-                  {fmt(item.amount)}
+                  {fmtFrom(item.amount, currency)}
                 </span>
 
                 {editable && (
