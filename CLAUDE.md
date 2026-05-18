@@ -88,6 +88,19 @@ POSTs to `inbound-email-webhook`. The function is **secret-gated**
 user from the recipient address (FK-validated by `receipts.user_id`), and runs
 the shared pipeline. Zero server load when idle.
 
+## Text sanitization (Phase 4)
+
+All channels MUST pre-parse through the one canonical sanitizer before any
+regex/classification, so behaviour can't drift:
+- `src/utils/textSanitize.ts` — `sanitizeText()` (NFC → strip BiDi/zero-width
+  /soft-hyphen → decode HTML entities → exotic-whitespace → repair broken
+  wraps → collapse) + `ParseFailReason`.
+- Twin: the `sanitize()` block in `supabase/functions/inbound-email-webhook`.
+- `parseAlertEmailDetailed()` returns `{ alert, reason }`; the webhook echoes
+  `reason` in `{ok:true,parsed:false,reason}` and logs a PII-free
+  `{evt:'parse_skip',reason,bodyLen}` line. Regexes with invisible Unicode
+  MUST use explicit `\uXXXX` escapes (never literal invisibles).
+
 ## "Twin module" discipline
 
 Deno Edge Functions cannot resolve the extensionless cross-`src/` import chain,

@@ -21,6 +21,7 @@ import { Receipt, ReceiptItem, Category } from '../types';
 import { normalizeMerchantName, merchantKey } from '../utils/merchantNormalizer';
 import { classifyCategory } from '../utils/categoryClassifier';
 import type { MerchantOverrides } from '../hooks/useMerchantOverrides';
+import { sanitizeText, type ParseFailReason } from '../utils/textSanitize';
 
 // ── Parsed shape (Task 3 output contract) ─────────────────────────────────────
 
@@ -123,11 +124,17 @@ function parseHebrewAlert(text: string): { amount: string; merchant: string; dat
 }
 
 /**
- * Parse a single alert email body. Returns null if nothing matches — the
- * caller skips it (graceful: unknown formats are ignored, never guessed).
+ * Detailed parse — returns the alert plus a deterministic failure reason for
+ * observability. Input is run through the single canonical sanitizer first so
+ * mixed Hebrew/English, BiDi marks, HTML entities and broken wraps behave
+ * identically everywhere. Never guesses.
  */
-export function parseAlertEmail(body: string, fallbackIso?: string): ParsedAlert | null {
-  const text = body.replace(/\s+/g, ' ').trim();
+export function parseAlertEmailDetailed(
+  body: string,
+  fallbackIso?: string,
+): { alert: ParsedAlert | null; reason?: ParseFailReason } {
+  const text = sanitizeText(body);
+  if (!text) return { alert: null, reason: 'empty_body' };
 
   const candidates: ({ amount: string; merchant: string; date: string })[] = [];
   for (const p of PATTERNS) {
@@ -137,19 +144,34 @@ export function parseAlertEmail(body: string, fallbackIso?: string): ParsedAlert
   const he = parseHebrewAlert(text);
   if (he) candidates.push(he);
 
+  if (candidates.length === 0) return { alert: null, reason: 'no_pattern_match' };
+
+  let sawBadAmount = false;
+  let sawBadDate = false;
   for (const { amount, merchant, date } of candidates) {
     const numeric = parseFloat(amount.replace(/,/g, ''));
-    if (!isFinite(numeric) || numeric <= 0) continue;
+    if (!isFinite(numeric) || numeric <= 0) { sawBadAmount = true; continue; }
     const iso = toIso(date) ?? (fallbackIso ? fallbackIso.slice(0, 10) : null);
-    if (!iso) continue;
+    if (!iso) { sawBadDate = true; continue; }
     return {
-      amount: Math.abs(numeric),
-      currency: detectCurrency(text),
-      merchant: merchant.trim(),
-      timestamp: iso,
+      alert: {
+        amount: Math.abs(numeric),
+        currency: detectCurrency(text),
+        merchant: merchant.trim(),
+        timestamp: iso,
+      },
     };
   }
-  return null;
+  return { alert: null, reason: sawBadAmount ? 'invalid_amount' : sawBadDate ? 'invalid_date' : 'no_pattern_match' };
+}
+
+/**
+ * Parse a single alert email body. Returns null if nothing matches — the
+ * caller skips it (graceful: unknown formats are ignored, never guessed).
+ * Thin wrapper over parseAlertEmailDetailed (back-compat).
+ */
+export function parseAlertEmail(body: string, fallbackIso?: string): ParsedAlert | null {
+  return parseAlertEmailDetailed(body, fallbackIso).alert;
 }
 
 // ── Idempotency ───────────────────────────────────────────────────────────────

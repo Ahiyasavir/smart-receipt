@@ -127,9 +127,42 @@ function parseHebrewAlert(text: string): { amount: string; merchant: string; dat
   if (!amount || !merchant || !date) return null;
   return { amount, merchant, date };
 }
+// ── Canonical sanitizer (twin of src/utils/textSanitize.ts) ───────────────────
+const HTML_ENTITIES: Record<string, string> = {
+  '&nbsp;': ' ', '&amp;': '&', '&quot;': '"', '&#34;': '"',
+  '&apos;': "'", '&#39;': "'", '&lt;': '<', '&gt;': '>',
+  '&shy;': '', '&zwnj;': '', '&zwj;': '', '&lrm;': '', '&rlm;': '',
+};
+const INVISIBLE_RE = /[\u00AD\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+const EXOTIC_WS_RE = /[\u00A0\u2000-\u200A\u202F\u205F\u3000\t\f\v]/g;
+function sanitize(raw: unknown): string {
+  if (raw == null) return '';
+  let s = String(raw);
+  try { s = s.normalize('NFC'); } catch { /* keep */ }
+  s = s.replace(INVISIBLE_RE, '');
+  s = s.replace(/&[a-zA-Z]+;|&#\d+;/g, (m) => {
+    if (m in HTML_ENTITIES) return HTML_ENTITIES[m];
+    const num = /^&#(\d+);$/.exec(m);
+    if (num) {
+      const c = Number(num[1]);
+      if (c > 0 && c < 0x10ffff) { try { return String.fromCodePoint(c); } catch { return ' '; } }
+    }
+    return ' ';
+  });
+  s = s.replace(EXOTIC_WS_RE, ' ');
+  s = s.replace(/([^\s])\r?\n([^\s])/g, '$1 $2');
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+type ParseFailReason = 'empty_body' | 'no_pattern_match' | 'invalid_amount' | 'invalid_date';
 interface ParsedAlert { amount: number; currency: string; merchant: string; timestamp: string; }
-function parseAlertEmail(body: string, fallbackIso?: string): ParsedAlert | null {
-  const text = body.replace(/\s+/g, ' ').trim();
+
+function parseAlertDetailed(
+  body: string,
+  fallbackIso?: string,
+): { alert: ParsedAlert | null; reason?: ParseFailReason } {
+  const text = sanitize(body);
+  if (!text) return { alert: null, reason: 'empty_body' };
   const candidates: { amount: string; merchant: string; date: string }[] = [];
   for (const p of PATTERNS) {
     const m = text.match(p.re);
@@ -137,14 +170,16 @@ function parseAlertEmail(body: string, fallbackIso?: string): ParsedAlert | null
   }
   const he = parseHebrewAlert(text);
   if (he) candidates.push(he);
+  if (candidates.length === 0) return { alert: null, reason: 'no_pattern_match' };
+  let badAmt = false, badDate = false;
   for (const { amount, merchant, date } of candidates) {
     const n = parseFloat(amount.replace(/,/g, ''));
-    if (!isFinite(n) || n <= 0) continue;
+    if (!isFinite(n) || n <= 0) { badAmt = true; continue; }
     const iso = toIso(date) ?? (fallbackIso ? fallbackIso.slice(0, 10) : null);
-    if (!iso) continue;
-    return { amount: Math.abs(n), currency: detectCurrency(text), merchant: merchant.trim(), timestamp: iso };
+    if (!iso) { badDate = true; continue; }
+    return { alert: { amount: Math.abs(n), currency: detectCurrency(text), merchant: merchant.trim(), timestamp: iso } };
   }
-  return null;
+  return { alert: null, reason: badAmt ? 'invalid_amount' : badDate ? 'invalid_date' : 'no_pattern_match' };
 }
 function djb2(str: string): string {
   let h = 5381;
@@ -234,8 +269,12 @@ Deno.serve(async (req: Request) => {
     if (!userId) return json({ error: 'unknown_recipient' }, 404);
     if (!body)   return json({ error: 'empty_body' }, 400);
 
-    const alert = parseAlertEmail(body);
-    if (!alert) return json({ ok: true, parsed: false }); // unknown format → ack, never guess
+    const { alert, reason } = parseAlertDetailed(body);
+    if (!alert) {
+      // Ack (never guess) but log a deterministic, PII-free diagnostic.
+      console.log(JSON.stringify({ evt: 'parse_skip', reason, bodyLen: body.length }));
+      return json({ ok: true, parsed: false, reason });
+    }
 
     // User merchant overrides (corrections carry over to forwarded txns).
     const { data: ov } = await admin.from('merchant_overrides')
