@@ -1,0 +1,107 @@
+{
+  "app": {
+    "name": "Spendora"
+  },
+  "nav": {
+    "home": "Home",
+    "activity": "Activity",
+    "capture": "Add",
+    "settings": "Settings"
+  },
+  "home": {
+    "totalSpend": "Total spend",
+    "receiptsTracked": "{{count}} receipts",
+    "itemsTracked": "Items tracked",
+    "categories": "{{count}} categories",
+    "activeCategories": "Categories",
+    "categoryBreakdown": "Where it went",
+    "connections": "Sync status",
+    "emptyTitle": "Your spending story starts here",
+    "emptyDescription": "Connect your email or add a receipt to see automatic insights.",
+    "emptyCta": "Add spending"
+  },
+  "activity": {
+    "title": "Activity",
+    "emptyTitle": "No activity yet",
+    "emptyDescription": "Spending from receipts and sync will appear here automatically.",
+    "emptyCta": "Add spending",
+    "viewReceipt": "View receipt"
+  },
+  "capture": {
+    "title": "Add spending",
+    "subtitle": "Upload a receipt to extract spending automatically",
+    "uploadTitle": "Upload receipt",
+    "uploadHint": "JPG · PNG · HEIC · drag & drop",
+    "scopeTitle": "Best results",
+    "scopeItems": ["Printed English supermarket receipts", "Flat, well-lit, in-focus photo", "Standard single-column format"],
+    "scopeNote": "More languages and formats coming soon.",
+    "mockReceipt": "Try sample receipt",
+    "scanning": "Reading receipt…",
+    "save": "Save to activity",
+    "discard": "Discard",
+    "tryAgain": "Try again",
+    "saved": "Saved",
+    "ocrError": "Could not read this file. Try a different image or a smaller file."
+  },
+  "detail": {
+    "merchant": "Merchant",
+    "amount": "Amount",
+    "category": "Category",
+    "source": "Source",
+    "confidence": "Confidence",
+    "date": "Date",
+    "rawText": "Parsed text",
+    "notes": "Notes",
+    "noNotes": "No notes",
+    "highConfidence": "High confidence",
+    "reviewSuggested": "Review suggested",
+    "deleteReceipt": "Delete receipt"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "currency": "Currency",
+    "connections": "Connections",
+    "developer": "Developer tools",
+    "showDebug": "Show parser debug",
+    "about": "About",
+    "version": "Version {{version}}",
+    "comingSoon": "Coming soon"
+  },
+  "connections": {
+    "receipt": "Receipt capture",
+    "bank": "Bank account",
+    "email": "Email sync",
+    "connected": "Connected",
+    "waiting": "Waiting",
+    "paused": "Paused",
+    "error": "Error",
+    "disconnected": "Not connected",
+    "lastSynced": "Last synced {{date}}",
+    "neverSynced": "Never synced",
+    "connect": "Connect",
+    "connectBank": "Connect bank",
+    "connectEmail": "Connect email"
+  },
+  "sources": {
+    "receipt": "Receipt",
+    "bank": "Bank",
+    "email": "Email"
+  },
+  "categories": {
+    "food": "Food & Drink",
+    "groceries": "Groceries",
+    "transport": "Transport",
+    "entertainment": "Entertainment",
+    "health": "Health",
+    "shopping": "Shopping",
+    "utilities": "Utilities",
+    "other": "Other"
+  },
+  "common": {
+    "back": "Back",
+    "close": "Close",
+    "items": "{{count}} items",
+    "item": "1 item"
+  }
+}
