@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Spendora">
+  <!-- ICON-ONLY mark. Transparent background (no box). Square, never cropped.
+       Use for: favicon, browser tab, PWA icon, small badges.
+       Do NOT use the wordmark (spendora-logo.png) at small sizes. -->
+  <g fill="none" stroke="#155E63" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">
+    <!-- circular-flow loop -->
+    <path d="M56 120 a44 44 0 1 1 14 30" />
+    <!-- upward growth arrow -->
+    <polyline points="58,128 86,96 110,116 144,72" />
+    <polyline points="120,72 144,72 144,96" />
+  </g>
+</svg>

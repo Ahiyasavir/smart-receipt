@@ -6,9 +6,9 @@ interface Props {
 
 const STEPS = [
   {
-    emoji: '✨',
-    title: 'Spending, on autopilot',
-    body: 'Spendora automatically captures your purchases from bank alerts — no manual entry, no spreadsheets.',
+    emoji: '✉️',
+    title: 'Tracking, on autopilot',
+    body: 'Connect your email and Spendora records every purchase automatically — no scanning, no manual entry, no spreadsheets.',
   },
   {
     emoji: '📊',

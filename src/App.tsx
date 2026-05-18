@@ -31,7 +31,7 @@ import { CATEGORY_META } from './utils/categoryClassifier';
 const NAV_TABS = [
   { id: 'scan'      as const, label: 'Add',       icon: '📷' },
   { id: 'dashboard' as const, label: 'Insights',   icon: '📊' },
-  { id: 'history'   as const, label: 'Activity',   icon: '🗂️'  },
+  { id: 'history'   as const, label: 'Spends',     icon: '🧾'  },
   { id: 'settings'  as const, label: 'Settings',   icon: '⚙️'  },
 ];
 
@@ -64,7 +64,7 @@ function useSpendingAlerts(
 
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { fmt, symbol, currency, setCurrency } = useCurrency();
+  const { fmt, fmtFrom, symbol, currency, setCurrency } = useCurrency();
   const userId = user?.id ?? '';
 
   const [tab,             setTab]             = useState<AppTab>('scan');
@@ -417,12 +417,17 @@ export default function App() {
             {/* Empty states */}
             {!receiptsLoading && !receiptsLoadError && receipts.length === 0 && (
               <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-10 text-center shadow-sm`}>
-                <div className="text-4xl mb-3">📈</div>
-                <p className={`font-semibold text-sm ${dm ? 'text-gray-200' : 'text-gray-700'}`}>No spending tracked yet</p>
-                <p className="text-xs text-gray-400 mt-1 mb-4">Add a purchase or connect your bank to start seeing your spending</p>
-                <button onClick={() => switchTab('scan')} className="bg-teal-700 text-white text-xs font-semibold px-4 py-2 rounded-xl hover:bg-teal-800 transition-colors">
-                  Add a purchase
-                </button>
+                <div className="text-4xl mb-3">✉️</div>
+                <p className={`font-semibold text-sm ${dm ? 'text-gray-200' : 'text-gray-700'}`}>No spends yet</p>
+                <p className="text-xs text-gray-400 mt-1 mb-4">Connect your email and Spendora tracks every purchase automatically — no manual entry.</p>
+                <div className="flex flex-col items-center gap-2">
+                  <button onClick={() => setEmailGuideOpen(true)} className="bg-teal-700 text-white text-xs font-semibold px-5 py-2.5 rounded-xl hover:bg-teal-800 transition-colors">
+                    ✉️ Connect email — automatic tracking
+                  </button>
+                  <button onClick={() => switchTab('scan')} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-xs transition-colors">
+                    or add a spend manually
+                  </button>
+                </div>
               </div>
             )}
 
@@ -479,7 +484,7 @@ export default function App() {
                     )}
                   </div>
                   <p className="text-lg font-bold text-blue-600 ml-3 shrink-0">
-                    {fmt(r.total)}
+                    {fmtFrom(r.total, r.currency)}
                   </p>
                 </div>
               </button>
@@ -500,7 +505,7 @@ export default function App() {
                 <BankBadge source={selectedReceipt.source} variant="header" />
               </div>
               <p className="text-sm opacity-60">{new Date(selectedReceipt.date).toLocaleString()}</p>
-              <p className="text-3xl font-bold mt-1">{fmt(selectedReceipt.total)}</p>
+              <p className="text-3xl font-bold mt-1">{fmtFrom(selectedReceipt.total, selectedReceipt.currency)}</p>
             </div>
 
             {/* Provenance & confidence — transparency cues */}
