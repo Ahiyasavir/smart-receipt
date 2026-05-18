@@ -18,10 +18,10 @@ interface Props {
 }
 
 export default function CategoryBreakdown({ receipts, title = 'Spending by category' }: Props) {
-  const { fmt } = useCurrency();
+  const { fmt, convert } = useCurrency();
   const { summaries, total } = useMemo(
-    () => buildCategorySummaries(receipts),
-    [receipts],
+    () => buildCategorySummaries(receipts, convert),
+    [receipts, convert],
   );
 
   // Animate bars from 0 → width on mount.

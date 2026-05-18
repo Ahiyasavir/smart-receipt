@@ -6,19 +6,26 @@
 import { Receipt, Category, CategorySummary } from '../types';
 import { CATEGORY_META } from './categoryClassifier';
 
+/**
+ * @param convert optional (amount, fromCurrency) → amount in display currency.
+ *   When provided, each item is converted from its receipt's original currency
+ *   so multi-currency spending aggregates correctly. Defaults to identity.
+ */
 export function buildCategorySummaries(
   receipts: Receipt[],
+  convert: (amount: number, fromCurrency?: string | null) => number = (n) => n,
 ): { summaries: CategorySummary[]; total: number; count: number } {
   const acc = new Map<Category, { total: number; count: number }>();
   let total = 0;
 
   for (const r of receipts) {
     for (const it of r.items) {
+      const amount = convert(it.amount, r.currency);
       const cur = acc.get(it.category) ?? { total: 0, count: 0 };
-      cur.total += it.amount;
+      cur.total += amount;
       cur.count += 1;
       acc.set(it.category, cur);
-      total += it.amount;
+      total += amount;
     }
   }
 
