@@ -19,7 +19,6 @@ import BudgetModal from './components/BudgetModal';
 import BankConnectionModal from './components/BankConnectionModal';
 import EmailSetupGuide from './components/EmailSetupGuide';
 import BankBadge from './components/BankBadge';
-import CategoryBreakdown from './components/CategoryBreakdown';
 import { SkeletonList } from './components/Skeleton';
 import BankSyncStatus from './components/BankSyncStatus';
 import { useBankConnections } from './hooks/useBankConnections';
@@ -75,6 +74,7 @@ export default function App() {
   const [historySearch,   setHistorySearch]   = useState('');
   const [historyCat,      setHistoryCat]      = useState<Category | 'all'>('all');
   const [historySort,     setHistorySort]     = useState<SortKey>('date-desc');
+  const [historySource,   setHistorySource]   = useState<'all' | 'bank' | 'scan'>('all');
   const [toast,           setToast]           = useState<string | null>(null);
   const [budgetOpen,      setBudgetOpen]      = useState(false);
   const [bankConnectOpen,   setBankConnectOpen]   = useState(false);
@@ -335,70 +335,62 @@ export default function App() {
         {/* HISTORY tab — list view */}
         {tab === 'history' && !selectedReceipt && (
           <div className="space-y-3">
-            {/* Header row */}
-            <div className="flex items-center justify-between">
-              <h2 className={`font-semibold text-sm uppercase tracking-wide ${dm ? 'text-gray-300' : 'text-gray-700'}`}>
-                Receipts
-              </h2>
-              <div className="flex items-center gap-2">
+            {/* Title + quiet actions */}
+            <div className="flex items-end justify-between">
+              <h1 className="s-h1">Activity</h1>
+              <div className="flex items-center gap-3">
                 {receipts.length > 0 && (
-                  <span className="text-xs text-gray-400">{receipts.length} · {fmt(historyTotal)}</span>
+                  <span style={{ font: '500 12px var(--font-sans)', color: 'var(--ink-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                    {fmt(historyTotal)}
+                  </span>
                 )}
                 {receipts.length > 0 && (
-                  <button onClick={() => exportReceiptsCsv(receipts)} className="text-xs text-[var(--brand-600)] hover:text-[var(--brand-700)] font-medium" title="Export all to CSV">
-                    ⬇ CSV
+                  <button onClick={() => exportReceiptsCsv(receipts)} className="s-pressable" style={{ font: '600 12px var(--font-sans)', color: 'var(--brand-600)' }} title="Export all to CSV">
+                    CSV
                   </button>
                 )}
-                <button onClick={() => setBankConnectOpen(true)} className="text-xs text-[var(--brand-600)] hover:text-[var(--brand-700)] font-medium" title="Connect bank">
-                  🏦 Bank
-                </button>
               </div>
             </div>
 
             {/* Search */}
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--ink-subtle)' }}>🔍</span>
               <input
                 type="text"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Search stores, items, notes…"
-                className={`w-full border rounded-xl pl-8 pr-8 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-300)] shadow-sm ${
-                  dm ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' : 'bg-white border-gray-200'
-                }`}
+                placeholder="Search spending…"
+                className="s-focus w-full"
+                style={{
+                  border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)',
+                  padding: '10px 32px', font: '400 14px var(--font-sans)',
+                  color: 'var(--ink)', background: 'var(--surface-card)', outline: 'none',
+                  boxSizing: 'border-box',
+                }}
               />
               {historySearch && (
-                <button onClick={() => setHistorySearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm" aria-label="Clear search">✕</button>
+                <button onClick={() => setHistorySearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: 'var(--ink-subtle)' }} aria-label="Clear search">✕</button>
               )}
             </div>
 
-            {/* Category filter + Sort */}
-            <div className="flex gap-2">
-              <select
-                value={historyCat}
-                onChange={(e) => setHistoryCat(e.target.value as Category | 'all')}
-                className={`flex-1 border rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--brand-300)] ${
-                  dm ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700'
-                }`}
-              >
-                <option value="all">All categories</option>
-                {(Object.keys(CATEGORY_META) as Category[]).filter((c) => c !== 'other').map((c) => (
-                  <option key={c} value={c}>{CATEGORY_META[c].emoji} {CATEGORY_META[c].label}</option>
-                ))}
-              </select>
-              <select
-                value={historySort}
-                onChange={(e) => setHistorySort(e.target.value as SortKey)}
-                className={`flex-1 border rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--brand-300)] ${
-                  dm ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700'
-                }`}
-              >
-                <option value="date-desc">Newest first</option>
-                <option value="date-asc">Oldest first</option>
-                <option value="amount-desc">Highest amount</option>
-                <option value="amount-asc">Lowest amount</option>
-                <option value="store">Store name A–Z</option>
-              </select>
+            {/* Source segmented filter */}
+            <div className="flex p-1" style={{ gap: 4, background: 'var(--surface-muted)', borderRadius: 'var(--radius-pill)' }}>
+              {([
+                { v: 'all',  l: 'All' },
+                { v: 'bank', l: '🏦 Bank' },
+                { v: 'scan', l: '🧾 Scan' },
+              ] as const).map(({ v, l }) => (
+                <button key={v} onClick={() => setHistorySource(v)}
+                  className="s-button s-pressable flex-1 py-1.5"
+                  style={{
+                    borderRadius: 'var(--radius-pill)',
+                    background: historySource === v ? 'var(--surface-card)' : 'transparent',
+                    color: historySource === v ? 'var(--brand-600)' : 'var(--ink-muted)',
+                    boxShadow: historySource === v ? 'var(--shadow-card)' : 'none',
+                  }}>
+                  {l}
+                </button>
+              ))}
             </div>
 
             {/* Loading skeleton */}
@@ -433,91 +425,97 @@ export default function App() {
               </div>
             )}
 
-            {!receiptsLoading && receipts.length > 0 && filteredReceipts.length === 0 && (
-              <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-8 text-center shadow-sm`}>
-                <p className="text-gray-400 text-sm">No receipts match your filters</p>
-                <button onClick={() => { setHistorySearch(''); setHistoryCat('all'); }} className="text-[var(--brand-600)] text-xs mt-2 hover:underline">Clear filters</button>
-              </div>
-            )}
+            {(() => {
+              if (receiptsLoading) return null;
+              const isBank = (s?: string) => s === 'bank-sync' || s === 'bank-import';
+              const shown = filteredReceipts.filter((r) =>
+                historySource === 'all' ? true
+                : historySource === 'bank' ? isBank(r.source)
+                : !isBank(r.source));
 
-            {/* Premium month/category analytics for the current view */}
-            {!receiptsLoading && filteredReceipts.length > 0 && (
-              <CategoryBreakdown receipts={filteredReceipts} title="This view" />
-            )}
-
-            {/* Spends list — Spendora designed Activity rows */}
-            {!receiptsLoading && filteredReceipts.length > 0 && (
-              <div
-                style={{
-                  background: 'var(--surface-card)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: 'var(--shadow-card)',
-                  overflow: 'hidden',
-                }}
-              >
-                {filteredReceipts.map((r, idx) => {
-                  const counts = r.items.reduce<Record<string, number>>((m, i) => {
-                    m[i.category] = (m[i.category] ?? 0) + 1; return m;
-                  }, {});
-                  const domCat = (Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'other') as Category;
-                  const meta = CATEGORY_META[domCat] ?? CATEGORY_META.other;
-                  const daysLeft = r.returnDeadline
-                    ? Math.ceil((new Date(r.returnDeadline).getTime() - Date.now()) / 86400000)
-                    : null;
-                  return (
+              if (receipts.length > 0 && shown.length === 0) {
+                return (
+                  <div style={{ ...{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)' }, padding: 28, textAlign: 'center' }}>
+                    <p className="s-body" style={{ color: 'var(--ink-muted)' }}>No spending matches these filters.</p>
                     <button
-                      key={r.id}
-                      onClick={() => { haptic(); setSelectedReceipt(r); }}
-                      className="s-pressable w-full text-left flex items-center gap-3"
-                      style={{
-                        padding: '12px 14px',
-                        borderBottom: idx < filteredReceipts.length - 1 ? '1px solid var(--color-border)' : 'none',
-                        background: 'transparent',
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: 38, height: 38, borderRadius: 12, flexShrink: 0,
-                          background: (meta.color ?? '#6B7280') + '21',
-                          display: 'grid', placeItems: 'center', fontSize: 17,
-                        }}
-                      >{meta.emoji}</span>
-                      <span className="flex-1 min-w-0">
-                        <span className="flex items-center gap-1.5">
-                          <span
-                            className="truncate"
-                            style={{ font: '600 14px var(--font-sans)', color: 'var(--ink)' }}
-                          >{r.storeName}</span>
-                          <BankBadge source={r.source} />
-                          {daysLeft !== null && daysLeft >= 0 && (
-                            <span
-                              style={{
-                                font: '700 9px var(--font-sans)', padding: '2px 6px',
-                                borderRadius: 999, flexShrink: 0,
-                                background: daysLeft <= 3 ? 'var(--status-error-bg)' : daysLeft <= 7 ? 'var(--status-warning-bg)' : 'var(--status-info-bg)',
-                                color: daysLeft <= 3 ? 'var(--status-error)' : daysLeft <= 7 ? 'var(--status-warning)' : 'var(--status-info)',
-                              }}
-                            >⏰ {daysLeft === 0 ? 'today' : `${daysLeft}d`}</span>
-                          )}
-                        </span>
-                        <span
-                          className="block mt-0.5 truncate"
-                          style={{ font: '400 11px var(--font-sans)', color: 'var(--ink-muted)' }}
+                      onClick={() => { setHistorySearch(''); setHistoryCat('all'); setHistorySort('date-desc'); setHistorySource('all'); }}
+                      className="s-pressable" style={{ marginTop: 8, font: '600 12px var(--font-sans)', color: 'var(--brand-600)' }}
+                    >Clear filters</button>
+                  </div>
+                );
+              }
+              if (shown.length === 0) return null;
+
+              // Group by relative day.
+              const today = new Date(); today.setHours(0, 0, 0, 0);
+              const dayLabel = (iso: string) => {
+                const d = new Date(iso); d.setHours(0, 0, 0, 0);
+                const diff = Math.round((today.getTime() - d.getTime()) / 86400000);
+                if (diff <= 0) return 'Today';
+                if (diff === 1) return 'Yesterday';
+                return new Date(iso).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+              };
+              const groups: { label: string; items: typeof shown }[] = [];
+              for (const r of shown) {
+                const label = dayLabel(r.date);
+                const g = groups.find((x) => x.label === label);
+                if (g) g.items.push(r); else groups.push({ label, items: [r] });
+              }
+
+              return groups.map(({ label, items }) => (
+                <div key={label}>
+                  <div className="s-section-label" style={{ padding: '0 4px 8px' }}>{label}</div>
+                  <div style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+                    {items.map((r, idx) => {
+                      const counts = r.items.reduce<Record<string, number>>((m, i) => {
+                        m[i.category] = (m[i.category] ?? 0) + 1; return m;
+                      }, {});
+                      const domCat = (Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'other') as Category;
+                      const meta = CATEGORY_META[domCat] ?? CATEGORY_META.other;
+                      const daysLeft = r.returnDeadline
+                        ? Math.ceil((new Date(r.returnDeadline).getTime() - Date.now()) / 86400000)
+                        : null;
+                      return (
+                        <button
+                          key={r.id}
+                          onClick={() => { haptic(); setSelectedReceipt(r); }}
+                          className="s-pressable w-full text-left flex items-center gap-3"
+                          style={{
+                            padding: '12px 14px',
+                            borderBottom: idx < items.length - 1 ? '1px solid var(--color-border)' : 'none',
+                            background: 'transparent',
+                          }}
                         >
-                          {new Date(r.date).toLocaleDateString()} · {meta.label}
-                          {r.notes ? ` · ${r.notes}` : ''}
-                        </span>
-                      </span>
-                      <span
-                        className="shrink-0"
-                        style={{ font: '700 14px var(--font-sans)', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}
-                      >{fmtFrom(r.total, r.currency)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                          <span style={{
+                            width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+                            background: (meta.color ?? '#6B7280') + '21',
+                            display: 'grid', placeItems: 'center', fontSize: 17,
+                          }}>{meta.emoji}</span>
+                          <span className="flex-1 min-w-0">
+                            <span className="flex items-center gap-1.5">
+                              <span className="truncate" style={{ font: '600 14px var(--font-sans)', color: 'var(--ink)' }}>{r.storeName}</span>
+                              <BankBadge source={r.source} />
+                              {daysLeft !== null && daysLeft >= 0 && (
+                                <span style={{
+                                  font: '700 9px var(--font-sans)', padding: '2px 6px',
+                                  borderRadius: 999, flexShrink: 0,
+                                  background: daysLeft <= 3 ? 'var(--status-error-bg)' : daysLeft <= 7 ? 'var(--status-warning-bg)' : 'var(--status-info-bg)',
+                                  color: daysLeft <= 3 ? 'var(--status-error)' : daysLeft <= 7 ? 'var(--status-warning)' : 'var(--status-info)',
+                                }}>⏰ {daysLeft === 0 ? 'today' : `${daysLeft}d`}</span>
+                              )}
+                            </span>
+                            <span className="block mt-0.5 truncate" style={{ font: '400 11px var(--font-sans)', color: 'var(--ink-muted)' }}>
+                              {meta.label}{r.notes ? ` · ${r.notes}` : ''}
+                            </span>
+                          </span>
+                          <span className="shrink-0" style={{ font: '700 14px var(--font-sans)', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtFrom(r.total, r.currency)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         )}
 
