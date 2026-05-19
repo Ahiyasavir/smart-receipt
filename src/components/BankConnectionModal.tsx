@@ -316,15 +316,15 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
               {/* Path 1: CSV Import */}
               <button
                 onClick={() => setScreen('csv-upload')}
-                className="w-full flex items-start gap-3 p-4 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 hover:border-blue-400 transition-colors text-left"
+                className="w-full flex items-start gap-3 p-4 rounded-xl border-2 border-[var(--brand-200)] dark:border-blue-800 bg-[var(--brand-50)] dark:bg-blue-900/20 hover:border-blue-400 transition-colors text-left"
               >
                 <span className="text-2xl mt-0.5">📂</span>
                 <div className="flex-1">
-                  <p className="font-semibold text-sm text-blue-800 dark:text-blue-300">Import CSV File</p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                  <p className="font-semibold text-sm text-[var(--brand-800)] dark:text-[var(--brand-300)]">Import CSV File</p>
+                  <p className="text-xs text-[var(--brand-600)] dark:text-[var(--brand-400)] mt-0.5">
                     Download a statement from your bank and upload it here. Works immediately.
                   </p>
-                  <p className="text-[11px] text-blue-500 dark:text-blue-500 mt-1.5 font-medium">
+                  <p className="text-[11px] text-[var(--brand-600)] dark:text-[var(--brand-600)] mt-1.5 font-medium">
                     {selectedBank.csvGuide}
                   </p>
                 </div>
@@ -351,7 +351,7 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
           {/* ── Screen: CSV upload ── */}
           {screen === 'csv-upload' && selectedBank && (
             <div className="space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 text-xs text-blue-700 dark:text-blue-300 space-y-2">
+              <div className="bg-[var(--brand-50)] dark:bg-blue-900/20 rounded-xl p-3 text-xs text-[var(--brand-700)] dark:text-[var(--brand-300)] space-y-2">
                 <p className="font-semibold">How to export from {selectedBank.name}:</p>
                 <p>{selectedBank.csvGuide}</p>
                 {selectedBank.csvUrl && (
@@ -359,7 +359,7 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
                     href={selectedBank.csvUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                    className="inline-flex items-center gap-1 font-semibold text-[var(--brand-600)] dark:text-[var(--brand-400)] hover:underline"
                   >
                     Open {selectedBank.name} ↗
                   </a>
@@ -382,7 +382,7 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={loading}
-                className="w-full border-2 border-dashed border-blue-300 dark:border-blue-700 rounded-xl py-10 text-blue-600 dark:text-blue-400 text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors disabled:opacity-50"
+                className="w-full border-2 border-dashed border-[var(--brand-300)] dark:border-[var(--brand-700)] rounded-xl py-10 text-[var(--brand-600)] dark:text-[var(--brand-400)] text-sm font-medium hover:bg-[var(--brand-50)] dark:hover:bg-blue-900/10 transition-colors disabled:opacity-50"
               >
                 {loading ? '⏳ Parsing…' : '📂 Choose CSV file'}
               </button>
@@ -411,9 +411,9 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
                   const cats = [...new Set(preview.flatMap((r) => r.items.map((i) => i.category)))].slice(0, 3);
                   return (
                     <>
-                      <div key="total" className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-2">
+                      <div key="total" className="bg-[var(--brand-50)] dark:bg-blue-900/20 rounded-xl p-2">
                         <p className="text-[10px] text-gray-400 uppercase">Total</p>
-                        <p className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                        <p className="text-sm font-bold text-[var(--brand-700)] dark:text-[var(--brand-300)]">
                           {total.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                         </p>
                       </div>
@@ -440,7 +440,7 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
                         {new Date(r.date).toLocaleDateString()} · {r.items[0]?.category}
                       </p>
                     </div>
-                    <span className="text-blue-600 dark:text-blue-400 font-semibold text-xs shrink-0">
+                    <span className="text-[var(--brand-600)] dark:text-[var(--brand-400)] font-semibold text-xs shrink-0">
                       {r.total.toFixed(2)}
                     </span>
                   </li>
@@ -498,7 +498,7 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
                   },
                 ].map((step) => (
                   <div key={step.n} className="flex gap-3">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                    <div className="w-6 h-6 rounded-full bg-[var(--brand-100)] dark:bg-blue-900/40 text-[var(--brand-600)] dark:text-[var(--brand-400)] flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                       {step.n}
                     </div>
                     <div>
@@ -530,7 +530,7 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
           <div className="px-4 pb-5 pt-2 shrink-0 border-t border-gray-100 dark:border-gray-700">
             <button
               onClick={handleImport}
-              className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors"
+              className="w-full bg-[var(--brand-600)] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[var(--brand-700)] transition-colors"
             >
               Import {preview?.length} Transactions
             </button>
@@ -541,7 +541,7 @@ export default function BankConnectionModal({ connections, overrides, onImport, 
           <div className="px-4 pb-5 pt-2 shrink-0 border-t border-gray-100 dark:border-gray-700">
             <button
               onClick={() => setScreen('csv-upload')}
-              className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors"
+              className="w-full bg-[var(--brand-600)] text-white py-3 rounded-xl font-semibold text-sm hover:bg-[var(--brand-700)] transition-colors"
             >
               Use CSV Import Instead
             </button>

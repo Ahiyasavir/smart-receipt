@@ -131,9 +131,9 @@ export default function ReceiptUploader({ onSave }: Props) {
     return (
       <div className="space-y-3">
         {/* Scope notice */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-800 space-y-1">
+        <div className="bg-[var(--brand-50)] border border-blue-100 rounded-xl px-4 py-3 text-xs text-[var(--brand-800)] space-y-1">
           <p className="font-semibold">Tips for best results</p>
-          <ul className="list-disc list-inside space-y-0.5 text-blue-700">
+          <ul className="list-disc list-inside space-y-0.5 text-[var(--brand-700)]">
             <li>Flat, well-lit receipt — avoid shadows and glare</li>
             <li>English and Hebrew receipts both supported</li>
             <li>Crumpled or blurry receipts may parse partially</li>
@@ -144,7 +144,7 @@ export default function ReceiptUploader({ onSave }: Props) {
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => cameraRef.current?.click()}
-            className="flex flex-col items-center gap-2 bg-blue-600 text-white rounded-2xl p-5 font-semibold hover:bg-blue-700 active:bg-blue-800 transition-colors"
+            className="flex flex-col items-center gap-2 bg-[var(--brand-600)] text-white rounded-2xl p-5 font-semibold hover:bg-[var(--brand-700)] active:bg-blue-800 transition-colors"
           >
             <span className="text-3xl">📷</span>
             <span className="text-sm">Take Photo</span>
@@ -170,7 +170,7 @@ export default function ReceiptUploader({ onSave }: Props) {
 
         <button
           onClick={handleMockScan}
-          className="w-full border border-blue-300 text-blue-600 text-sm font-medium py-2.5 rounded-xl hover:bg-blue-50 transition-colors"
+          className="w-full border border-[var(--brand-300)] text-[var(--brand-600)] text-sm font-medium py-2.5 rounded-xl hover:bg-[var(--brand-50)] transition-colors"
         >
           Try with sample receipt
         </button>
@@ -268,7 +268,7 @@ export default function ReceiptUploader({ onSave }: Props) {
         <div className="flex gap-2">
           <button
             onClick={reset}
-            className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700"
+            className="flex-1 bg-[var(--brand-600)] text-white py-3 rounded-xl font-semibold hover:bg-[var(--brand-700)]"
           >
             Try Again
           </button>
@@ -352,7 +352,7 @@ export default function ReceiptUploader({ onSave }: Props) {
       )}
 
       {/* Detected total */}
-      <div className="bg-blue-600 text-white rounded-2xl p-4 text-center">
+      <div className="bg-[var(--brand-600)] text-white rounded-2xl p-4 text-center">
         <p className="text-xs uppercase tracking-wide opacity-70">
           {parseResult.mismatch ? 'Receipt Total' : 'Total'}
         </p>
@@ -398,7 +398,7 @@ export default function ReceiptUploader({ onSave }: Props) {
         </button>
         <button
           onClick={handleSave}
-          className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700"
+          className="flex-1 bg-[var(--brand-600)] text-white py-3 rounded-xl font-semibold hover:bg-[var(--brand-700)]"
         >
           Save Receipt
         </button>

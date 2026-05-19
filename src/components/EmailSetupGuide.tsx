@@ -61,7 +61,7 @@ export default function EmailSetupGuide({ userId, onToast, onClose }: Props) {
       ? { dot: 'bg-amber-400', text: 'Paused', cls: 'text-amber-600 dark:text-amber-400' }
       : sync.connected
         ? { dot: 'bg-emerald-500', text: `Connected · last transaction ${timeAgo(sync.lastReceivedAt)}`, cls: 'text-emerald-600 dark:text-emerald-400' }
-        : { dot: 'bg-blue-400 animate-pulse', text: 'Waiting for your first transaction…', cls: 'text-blue-600 dark:text-blue-400' };
+        : { dot: 'bg-[var(--brand-400)] animate-pulse', text: 'Waiting for your first transaction…', cls: 'text-[var(--brand-600)] dark:text-[var(--brand-400)]' };
 
   return (
     <div
@@ -85,9 +85,9 @@ export default function EmailSetupGuide({ userId, onToast, onClose }: Props) {
           </div>
 
           {/* Why */}
-          <div className="rounded-xl bg-blue-50 dark:bg-blue-900/30 px-3 py-3 flex gap-2">
+          <div className="rounded-xl bg-[var(--brand-50)] dark:bg-blue-900/30 px-3 py-3 flex gap-2">
             <span className="text-lg leading-none shrink-0">🔒</span>
-            <p className="text-xs text-blue-800 dark:text-blue-200 leading-relaxed">
+            <p className="text-xs text-[var(--brand-800)] dark:text-blue-200 leading-relaxed">
               Your bank already emails you for every purchase. Forward those
               alerts to your private address and they’re logged automatically —
               <strong> no bank password, no app to open</strong>.
@@ -102,7 +102,7 @@ export default function EmailSetupGuide({ userId, onToast, onClose }: Props) {
                 {sync.loading ? '…' : sync.address}
               </code>
               <button onClick={copy} disabled={sync.loading}
-                className="shrink-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg px-3 transition-colors">
+                className="shrink-0 bg-[var(--brand-600)] hover:bg-[var(--brand-700)] disabled:opacity-50 text-white text-xs font-semibold rounded-lg px-3 transition-colors">
                 {copied ? '✓ Copied' : 'Copy'}
               </button>
             </div>
@@ -142,7 +142,7 @@ export default function EmailSetupGuide({ userId, onToast, onClose }: Props) {
 
         <div className="px-4 pb-4 pt-3 border-t border-gray-100 dark:border-gray-700 shrink-0 space-y-2">
           <button onClick={copy} disabled={sync.loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl py-2.5 transition-colors flex items-center justify-center gap-2">
+            className="w-full bg-[var(--brand-600)] hover:bg-[var(--brand-700)] disabled:opacity-50 text-white text-sm font-semibold rounded-xl py-2.5 transition-colors flex items-center justify-center gap-2">
             <span>📋</span> {copied ? 'Copied!' : 'Copy sync address'}
           </button>
           <button onClick={onClose}
