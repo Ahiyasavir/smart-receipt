@@ -275,11 +275,11 @@ export default function App() {
 
       {/* ── Install banner ───────────────────────────────────────── */}
       {showInstallBanner && (
-        <div className="bg-blue-600 text-white px-4 py-2.5 flex items-center justify-between max-w-lg mx-auto">
+        <div className="bg-[var(--brand-600)] text-white px-4 py-2.5 flex items-center justify-between max-w-lg mx-auto">
           <p className="text-sm font-medium">Add Spendora to your home screen</p>
           <div className="flex gap-2 ml-3 shrink-0">
             <button onClick={() => setShowInstallBanner(false)} className="text-white/70 hover:text-white text-xs">Later</button>
-            <button onClick={handleInstall} className="bg-white text-blue-600 text-xs font-semibold px-3 py-1 rounded-full">Install</button>
+            <button onClick={handleInstall} className="bg-white text-[var(--brand-600)] text-xs font-semibold px-3 py-1 rounded-full">Install</button>
           </div>
         </div>
       )}
@@ -345,11 +345,11 @@ export default function App() {
                   <span className="text-xs text-gray-400">{receipts.length} · {fmt(historyTotal)}</span>
                 )}
                 {receipts.length > 0 && (
-                  <button onClick={() => exportReceiptsCsv(receipts)} className="text-xs text-blue-500 hover:text-blue-700 font-medium" title="Export all to CSV">
+                  <button onClick={() => exportReceiptsCsv(receipts)} className="text-xs text-[var(--brand-600)] hover:text-[var(--brand-700)] font-medium" title="Export all to CSV">
                     ⬇ CSV
                   </button>
                 )}
-                <button onClick={() => setBankConnectOpen(true)} className="text-xs text-blue-500 hover:text-blue-700 font-medium" title="Connect bank">
+                <button onClick={() => setBankConnectOpen(true)} className="text-xs text-[var(--brand-600)] hover:text-[var(--brand-700)] font-medium" title="Connect bank">
                   🏦 Bank
                 </button>
               </div>
@@ -363,7 +363,7 @@ export default function App() {
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
                 placeholder="Search stores, items, notes…"
-                className={`w-full border rounded-xl pl-8 pr-8 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 shadow-sm ${
+                className={`w-full border rounded-xl pl-8 pr-8 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-300)] shadow-sm ${
                   dm ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' : 'bg-white border-gray-200'
                 }`}
               />
@@ -377,7 +377,7 @@ export default function App() {
               <select
                 value={historyCat}
                 onChange={(e) => setHistoryCat(e.target.value as Category | 'all')}
-                className={`flex-1 border rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-300 ${
+                className={`flex-1 border rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--brand-300)] ${
                   dm ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700'
                 }`}
               >
@@ -389,7 +389,7 @@ export default function App() {
               <select
                 value={historySort}
                 onChange={(e) => setHistorySort(e.target.value as SortKey)}
-                className={`flex-1 border rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-300 ${
+                className={`flex-1 border rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[var(--brand-300)] ${
                   dm ? 'bg-gray-800 border-gray-600 text-gray-200' : 'bg-white border-gray-200 text-gray-700'
                 }`}
               >
@@ -436,7 +436,7 @@ export default function App() {
             {!receiptsLoading && receipts.length > 0 && filteredReceipts.length === 0 && (
               <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl p-8 text-center shadow-sm`}>
                 <p className="text-gray-400 text-sm">No receipts match your filters</p>
-                <button onClick={() => { setHistorySearch(''); setHistoryCat('all'); }} className="text-blue-500 text-xs mt-2 hover:underline">Clear filters</button>
+                <button onClick={() => { setHistorySearch(''); setHistoryCat('all'); }} className="text-[var(--brand-600)] text-xs mt-2 hover:underline">Clear filters</button>
               </div>
             )}
 
@@ -445,69 +445,116 @@ export default function App() {
               <CategoryBreakdown receipts={filteredReceipts} title="This view" />
             )}
 
-            {/* Receipt list */}
-            {!receiptsLoading && filteredReceipts.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => { haptic(); setSelectedReceipt(r); }}
-                className={`w-full ${dm ? 'bg-gray-800 hover:bg-gray-750' : 'bg-white hover:shadow-md'} rounded-2xl p-4 shadow-sm text-left active:scale-[0.99] transition-all`}
+            {/* Spends list — Spendora designed Activity rows */}
+            {!receiptsLoading && filteredReceipts.length > 0 && (
+              <div
+                style={{
+                  background: 'var(--surface-card)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-lg)',
+                  boxShadow: 'var(--shadow-card)',
+                  overflow: 'hidden',
+                }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <p className={`font-semibold truncate max-w-[60%] ${dm ? 'text-white' : 'text-gray-800'}`}>{r.storeName}</p>
-                      <BankBadge source={r.source} />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {new Date(r.date).toLocaleDateString()} · {r.items.length} item{r.items.length !== 1 ? 's' : ''}
-                      {r.notes && <span className="ml-1 text-blue-400">· {r.notes}</span>}
-                    </p>
-                    {/* Category pills for the receipt */}
-                    {r.items.length > 0 && (
-                      <div className="flex gap-1 mt-1.5 flex-wrap">
-                        {[...new Set(r.items.map((i) => i.category))].slice(0, 3).map((cat) => (
-                          <span key={cat} className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
-                            style={{ backgroundColor: CATEGORY_META[cat]?.color + '22', color: CATEGORY_META[cat]?.color }}>
-                            {CATEGORY_META[cat]?.emoji} {CATEGORY_META[cat]?.label}
-                          </span>
-                        ))}
-                        {r.returnDeadline && (() => {
-                          const daysLeft = Math.ceil((new Date(r.returnDeadline).getTime() - Date.now()) / 86400000);
-                          if (daysLeft < 0) return null;
-                          return (
-                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${
-                              daysLeft <= 3 ? 'bg-red-100 text-red-600' : daysLeft <= 7 ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-600'
-                            }`}>
-                              ⏰ {daysLeft === 0 ? 'Return today!' : `Return in ${daysLeft}d`}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-lg font-bold text-blue-600 ml-3 shrink-0">
-                    {fmtFrom(r.total, r.currency)}
-                  </p>
-                </div>
-              </button>
-            ))}
+                {filteredReceipts.map((r, idx) => {
+                  const counts = r.items.reduce<Record<string, number>>((m, i) => {
+                    m[i.category] = (m[i.category] ?? 0) + 1; return m;
+                  }, {});
+                  const domCat = (Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'other') as Category;
+                  const meta = CATEGORY_META[domCat] ?? CATEGORY_META.other;
+                  const daysLeft = r.returnDeadline
+                    ? Math.ceil((new Date(r.returnDeadline).getTime() - Date.now()) / 86400000)
+                    : null;
+                  return (
+                    <button
+                      key={r.id}
+                      onClick={() => { haptic(); setSelectedReceipt(r); }}
+                      className="s-pressable w-full text-left flex items-center gap-3"
+                      style={{
+                        padding: '12px 14px',
+                        borderBottom: idx < filteredReceipts.length - 1 ? '1px solid var(--color-border)' : 'none',
+                        background: 'transparent',
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+                          background: (meta.color ?? '#6B7280') + '21',
+                          display: 'grid', placeItems: 'center', fontSize: 17,
+                        }}
+                      >{meta.emoji}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="flex items-center gap-1.5">
+                          <span
+                            className="truncate"
+                            style={{ font: '600 14px var(--font-sans)', color: 'var(--ink)' }}
+                          >{r.storeName}</span>
+                          <BankBadge source={r.source} />
+                          {daysLeft !== null && daysLeft >= 0 && (
+                            <span
+                              style={{
+                                font: '700 9px var(--font-sans)', padding: '2px 6px',
+                                borderRadius: 999, flexShrink: 0,
+                                background: daysLeft <= 3 ? 'var(--status-error-bg)' : daysLeft <= 7 ? 'var(--status-warning-bg)' : 'var(--status-info-bg)',
+                                color: daysLeft <= 3 ? 'var(--status-error)' : daysLeft <= 7 ? 'var(--status-warning)' : 'var(--status-info)',
+                              }}
+                            >⏰ {daysLeft === 0 ? 'today' : `${daysLeft}d`}</span>
+                          )}
+                        </span>
+                        <span
+                          className="block mt-0.5 truncate"
+                          style={{ font: '400 11px var(--font-sans)', color: 'var(--ink-muted)' }}
+                        >
+                          {new Date(r.date).toLocaleDateString()} · {meta.label}
+                          {r.notes ? ` · ${r.notes}` : ''}
+                        </span>
+                      </span>
+                      <span
+                        className="shrink-0"
+                        style={{ font: '700 14px var(--font-sans)', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}
+                      >{fmtFrom(r.total, r.currency)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
         {/* HISTORY tab — detail view */}
         {tab === 'history' && selectedReceipt && (
-          <div className="space-y-4">
-            <button onClick={() => setSelectedReceipt(null)} className="flex items-center gap-1 text-blue-600 text-sm font-medium">
-              ← Back
+          <div
+            className="space-y-4"
+            style={{ animation: 'fade-slide var(--dur-base) var(--ease-out-soft) both' }}
+          >
+            <button
+              onClick={() => setSelectedReceipt(null)}
+              className="s-pressable flex items-center gap-1"
+              style={{ font: '600 14px var(--font-sans)', color: 'var(--ink-muted)' }}
+            >
+              <span style={{ fontSize: 16 }}>‹</span> Spends
             </button>
 
-            <div className="bg-blue-600 text-white rounded-2xl p-4">
+            {/* Detail header — sheet/brand-gradient language */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, var(--brand-600), var(--brand-700))',
+                borderRadius: 'var(--radius-lg)',
+                padding: 'var(--space-5)',
+                color: 'var(--ink-on-brand)',
+                boxShadow: 'var(--shadow-card)',
+              }}
+            >
               <div className="flex items-center gap-2">
-                <p className="font-bold text-lg">{selectedReceipt.storeName}</p>
+                <p style={{ font: '700 17px var(--font-sans)' }}>{selectedReceipt.storeName}</p>
                 <BankBadge source={selectedReceipt.source} variant="header" />
               </div>
-              <p className="text-sm opacity-60">{new Date(selectedReceipt.date).toLocaleString()}</p>
-              <p className="text-3xl font-bold mt-1">{fmtFrom(selectedReceipt.total, selectedReceipt.currency)}</p>
+              <p style={{ font: '400 12px var(--font-sans)', color: 'rgba(255,255,255,0.7)', marginTop: 4 }}>
+                {new Date(selectedReceipt.date).toLocaleString()}
+              </p>
+              <div className="s-amount-hero" style={{ color: 'var(--ink-on-brand)', marginTop: 'var(--space-1)' }}>
+                {fmtFrom(selectedReceipt.total, selectedReceipt.currency)}
+              </div>
             </div>
 
             {/* Provenance & confidence — transparency cues */}
@@ -523,14 +570,28 @@ export default function App() {
               :                          { icon: '📷', text: 'Scanned from a photo receipt' };
               const lowConf = avg !== null && avg < 0.6;
               return (
-                <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm p-4 flex items-start gap-3`}>
+                <div
+                  className="flex items-start gap-3"
+                  style={{
+                    background: 'var(--surface-card)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-lg)',
+                    boxShadow: 'var(--shadow-card)',
+                    padding: 'var(--space-4)',
+                  }}
+                >
                   <span className="text-lg leading-none shrink-0">{provenance.icon}</span>
                   <div className="min-w-0">
-                    <p className={`text-sm font-medium ${dm ? 'text-gray-200' : 'text-gray-700'}`}>
+                    <p style={{ font: '500 14px var(--font-sans)', color: 'var(--ink)' }}>
                       {provenance.text}
                     </p>
                     {avg !== null && (
-                      <p className={`text-xs mt-0.5 ${lowConf ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>
+                      <p
+                        style={{
+                          font: '400 12px var(--font-sans)', marginTop: 2,
+                          color: lowConf ? 'var(--status-warning)' : 'var(--ink-muted)',
+                        }}
+                      >
                         {lowConf ? '⚠ ' : ''}Detected with {Math.round(avg * 100)}% confidence
                         {lowConf ? ' — tap an item to verify the category' : ''}
                       </p>
@@ -596,8 +657,8 @@ export default function App() {
                       }}
                       className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors ${
                         selectedReceipt.returnDeadline === iso
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : dm ? 'border-gray-600 text-gray-300 hover:border-blue-500' : 'border-gray-200 text-gray-600 hover:border-blue-400'
+                          ? 'bg-[var(--brand-600)] text-white border-[var(--brand-600)]'
+                          : dm ? 'border-gray-600 text-gray-300 hover:border-[var(--brand-500)]' : 'border-gray-200 text-gray-600 hover:border-blue-400'
                       }`}>
                       {days}d
                     </button>
@@ -624,7 +685,7 @@ export default function App() {
             {/* Action buttons */}
             <div className="flex gap-2">
               <button onClick={() => handleShare(selectedReceipt)}
-                className={`flex-1 border ${dm ? 'border-blue-700 text-blue-400' : 'border-blue-300 text-blue-600'} py-3 rounded-xl text-sm font-medium hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors`}>
+                className={`flex-1 border ${dm ? 'border-[var(--brand-700)] text-[var(--brand-400)]' : 'border-[var(--brand-300)] text-[var(--brand-600)]'} py-3 rounded-xl text-sm font-medium hover:bg-[var(--brand-50)] dark:hover:bg-blue-900/20 transition-colors`}>
                 Share 📤
               </button>
               <button onClick={() => exportReceiptsCsv([selectedReceipt])}
@@ -659,10 +720,10 @@ export default function App() {
             {/* Account */}
             <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Account</h3>
+                <h3 className="s-h3">Account</h3>
               </div>
               <div className="px-4 py-3 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-xl shrink-0">
+                <div className="w-10 h-10 rounded-full bg-[var(--brand-100)] dark:bg-blue-900/40 flex items-center justify-center text-xl shrink-0">
                   {user.email?.[0].toUpperCase() ?? '?'}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -681,7 +742,7 @@ export default function App() {
             {/* Appearance */}
             <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Appearance</h3>
+                <h3 className="s-h3">Appearance</h3>
               </div>
               <div className="px-4 py-3 flex items-center justify-between">
                 <div>
@@ -690,7 +751,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => setDarkMode((v) => !v)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${darkMode ? 'bg-blue-600' : 'bg-gray-200'}`}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${darkMode ? 'bg-[var(--brand-600)]' : 'bg-gray-200'}`}
                   aria-label="Toggle dark mode"
                 >
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${darkMode ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -702,7 +763,7 @@ export default function App() {
             {notificationsSupported() && (
               <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
                 <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                  <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Notifications</h3>
+                  <h3 className="s-h3">Notifications</h3>
                 </div>
                 <div className="px-4 py-3">
                   {notificationsGranted() ? (
@@ -719,7 +780,7 @@ export default function App() {
                         Get alerted when you're near a budget limit or a return window is expiring.
                       </p>
                       <button onClick={requestNotificationPermission}
-                        className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">
+                        className="w-full bg-[var(--brand-600)] text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-[var(--brand-700)] transition-colors">
                         🔔 Enable Notifications
                       </button>
                     </div>
@@ -731,7 +792,7 @@ export default function App() {
             {/* Weekly email digest */}
             <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Weekly Email Digest</h3>
+                <h3 className="s-h3">Weekly Email Digest</h3>
               </div>
               <div className="px-4 py-3 flex items-center justify-between">
                 <div className="flex-1 pr-4">
@@ -740,7 +801,7 @@ export default function App() {
                 </div>
                 <button
                   onClick={() => setEmailDigestPref(!emailDigest)}
-                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${emailDigest ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
+                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${emailDigest ? 'bg-[var(--brand-600)]' : 'bg-gray-200 dark:bg-gray-600'}`}
                   aria-label="Toggle weekly email digest"
                 >
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${emailDigest ? 'translate-x-5' : 'translate-x-0'}`} />
@@ -756,7 +817,7 @@ export default function App() {
             {/* Currency */}
             <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Currency</h3>
+                <h3 className="s-h3">Currency</h3>
               </div>
               <div className="px-4 py-3">
                 <p className="text-xs text-gray-400 mb-3">All amounts are displayed in your chosen currency</p>
@@ -765,7 +826,7 @@ export default function App() {
                     <button key={c.code} onClick={() => setCurrency(c.code as CurrencyCode)}
                       className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors ${
                         currency === c.code
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                          ? 'border-[var(--brand-500)] bg-[var(--brand-50)] dark:bg-blue-900/20 text-[var(--brand-700)] dark:text-[var(--brand-300)]'
                           : dm ? 'border-gray-600 text-gray-300 hover:border-gray-500' : 'border-gray-200 text-gray-700 hover:border-gray-300'
                       }`}>
                       <span className="text-lg">{c.flag}</span>
@@ -782,7 +843,7 @@ export default function App() {
             {/* Data */}
             <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Data</h3>
+                <h3 className="s-h3">Data</h3>
               </div>
               <div className="px-4 py-3 space-y-2">
                 <button onClick={() => exportReceiptsCsv(receipts)}
@@ -822,7 +883,7 @@ export default function App() {
             {/* Budgets shortcut */}
             <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Budgets</h3>
+                <h3 className="s-h3">Budgets</h3>
               </div>
               <button onClick={() => setBudgetOpen(true)}
                 className={`w-full flex items-center gap-3 px-4 py-3 ${dm ? 'hover:bg-gray-700' : 'hover:bg-gray-50'} transition-colors text-left`}>
@@ -838,7 +899,7 @@ export default function App() {
             {/* App info */}
             <div className={`${dm ? 'bg-gray-800' : 'bg-white'} rounded-2xl shadow-sm overflow-hidden`}>
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">About</h3>
+                <h3 className="s-h3">About</h3>
               </div>
               <div className="px-4 py-3 space-y-2 text-sm">
                 <div className="flex justify-between">
@@ -899,12 +960,12 @@ export default function App() {
             <button key={id} onClick={() => switchTab(id)}
               aria-current={tab === id ? 'page' : undefined}
               className={`flex-1 flex flex-col items-center py-3 gap-0.5 text-xs font-medium transition-all active:scale-95 ${
-                tab === id ? 'text-blue-600' : dm ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
+                tab === id ? 'text-[var(--brand-600)]' : dm ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-600'
               }`}>
               <span className="relative text-xl leading-none">
                 {icon}
                 {id === 'history' && receipts.length > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-blue-600 text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
+                  <span className="absolute -top-1 -right-2 bg-[var(--brand-600)] text-white text-[9px] font-bold rounded-full min-w-[14px] h-[14px] flex items-center justify-center px-0.5 leading-none">
                     {receipts.length > 99 ? '99+' : receipts.length}
                   </span>
                 )}

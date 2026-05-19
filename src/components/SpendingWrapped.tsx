@@ -173,7 +173,7 @@ export default function SpendingWrapped({ receipts, onClose }: Props) {
         {/* Actions */}
         <div className="px-4 pb-6 pt-2 flex gap-3">
           <button onClick={handleShare}
-            className="flex-1 bg-blue-600 text-white py-3.5 rounded-2xl font-semibold text-base hover:bg-blue-700 active:scale-[0.98] transition-all shadow-sm">
+            className="flex-1 bg-blue-600 text-white py-3.5 rounded-2xl font-semibold text-base hover:bg-[var(--brand-700)] active:scale-[0.98] transition-all shadow-sm">
             📤 Share Card
           </button>
           <button onClick={onClose}

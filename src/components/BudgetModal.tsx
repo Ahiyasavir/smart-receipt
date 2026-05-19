@@ -90,7 +90,7 @@ export default function BudgetModal({ budgets, onSave, onClose }: Props) {
         <div className="px-4 pb-5 pt-2 shrink-0 border-t border-gray-100">
           <button
             onClick={handleSave}
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-blue-700 transition-colors"
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-[var(--brand-700)] transition-colors"
           >
             Save Budgets
           </button>

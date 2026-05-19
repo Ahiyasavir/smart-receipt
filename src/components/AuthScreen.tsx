@@ -3,6 +3,18 @@ import { useAuth } from '../hooks/useAuth';
 
 type Mode = 'signin' | 'signup' | 'reset';
 
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-md)',
+  padding: '11px 14px',
+  font: '400 14px var(--font-sans)',
+  color: 'var(--ink)',
+  background: 'var(--surface-card)',
+  outline: 'none',
+  boxSizing: 'border-box',
+};
+
 export default function AuthScreen() {
   const { signIn, signUp, resetPassword } = useAuth();
 
@@ -36,107 +48,110 @@ export default function AuthScreen() {
       setInfo('Account created! Check your email to confirm, then sign in.');
       setMode('signin');
     }
-    // signIn success → useAuth listener updates session automatically
+  };
+
+  const brandBtn: React.CSSProperties = {
+    width: '100%', background: 'var(--brand-600)', color: 'var(--ink-on-brand)',
+    borderRadius: 'var(--radius-lg)', padding: '13px 0',
+    font: '600 15px var(--font-sans)', boxShadow: 'var(--shadow-card)',
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <img src="/spendora-logo.png" alt="Spendora" className="h-10 w-auto mx-auto mb-3" />
-          <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+    <div
+      className="min-h-screen flex flex-col items-center justify-center"
+      style={{ background: 'var(--surface-app)', padding: '0 24px' }}
+    >
+      <div className="w-full" style={{ maxWidth: 320 }}>
+        <div className="text-center" style={{ marginBottom: 28 }}>
+          <img src="/spendora-logo.png" alt="Spendora" style={{ height: 38, width: 'auto', display: 'inline-block' }} />
+          <p className="s-body" style={{ margin: '12px 0 0', color: 'var(--ink-muted)' }}>
             Automatically track, organize, and understand your spending
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          {/* Tab row */}
-          <div className="flex bg-gray-100 rounded-xl p-1 mb-5">
-            {(['signin', 'signup'] as const).map((m) => (
-              <button
-                key={m}
-                onClick={() => { setMode(m); setError(null); setInfo(null); }}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  mode === m ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'
-                }`}
-              >
-                {m === 'signin' ? 'Sign In' : 'Create Account'}
-              </button>
-            ))}
-          </div>
+        <div
+          style={{
+            background: 'var(--surface-card)', border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)',
+            padding: 20, marginBottom: 12,
+          }}
+        >
+          {mode !== 'reset' && (
+            <div
+              className="flex p-1 gap-1"
+              style={{ background: 'var(--surface-muted)', borderRadius: 'var(--radius-pill)' }}
+            >
+              {(['signin', 'signup'] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => { setMode(m); setError(null); setInfo(null); }}
+                  className="s-button s-pressable flex-1 py-1.5"
+                  style={{
+                    borderRadius: 'var(--radius-pill)',
+                    background: mode === m ? 'var(--surface-card)' : 'transparent',
+                    color: mode === m ? 'var(--brand-600)' : 'var(--ink-muted)',
+                    boxShadow: mode === m ? 'var(--shadow-card)' : 'none',
+                  }}
+                >
+                  {m === 'signin' ? 'Sign in' : 'Create account'}
+                </button>
+              ))}
+            </div>
+          )}
 
-          {mode === 'reset' ? (
-            <form onSubmit={handle} className="space-y-3">
-              <p className="text-sm text-gray-600">Enter your email and we'll send a reset link.</p>
+          <form onSubmit={handle} style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {mode === 'reset' && (
+              <p className="s-body" style={{ margin: 0, color: 'var(--ink-secondary)' }}>
+                Enter your email and we'll send a reset link.
+              </p>
+            )}
+            <input
+              type="email" required placeholder="Email"
+              value={email} onChange={(e) => setEmail(e.target.value)}
+              className="s-focus" style={inputStyle}
+            />
+            {mode !== 'reset' && (
               <input
-                type="email"
-                required
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                type="password" required placeholder="Password" minLength={6}
+                value={password} onChange={(e) => setPassword(e.target.value)}
+                className="s-focus" style={inputStyle}
               />
-              {error && <p className="text-xs text-red-500">{error}</p>}
-              {info  && <p className="text-xs text-emerald-600">{info}</p>}
+            )}
+            {error && <p style={{ font: '400 12px var(--font-sans)', color: 'var(--status-error)' }}>{error}</p>}
+            {info  && <p style={{ font: '400 12px var(--font-sans)', color: 'var(--status-success)' }}>{info}</p>}
+            <button type="submit" disabled={loading} className="s-pressable" style={{ ...brandBtn, opacity: loading ? 0.55 : 1 }}>
+              {loading
+                ? '…'
+                : mode === 'reset'
+                  ? 'Send reset link'
+                  : mode === 'signup' ? 'Create account' : 'Sign in'}
+            </button>
+            {mode === 'signin' && (
               <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                type="button"
+                onClick={() => { setMode('reset'); setError(null); setInfo(null); }}
+                style={{ background: 'transparent', border: 'none', padding: 4, cursor: 'pointer', font: '400 11px var(--font-sans)', color: 'var(--ink-subtle)' }}
               >
-                {loading ? 'Sending…' : 'Send Reset Link'}
+                Forgot password?
               </button>
+            )}
+            {mode === 'reset' && (
               <button
                 type="button"
                 onClick={() => { setMode('signin'); setError(null); setInfo(null); }}
-                className="w-full text-xs text-gray-500 hover:text-gray-700 py-1"
+                style={{ background: 'transparent', border: 'none', padding: 4, cursor: 'pointer', font: '400 11px var(--font-sans)', color: 'var(--ink-subtle)' }}
               >
-                ← Back to Sign In
+                ‹ Back to sign in
               </button>
-            </form>
-          ) : (
-            <form onSubmit={handle} className="space-y-3">
-              <input
-                type="email"
-                required
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-              <input
-                type="password"
-                required
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-              {error && <p className="text-xs text-red-500">{error}</p>}
-              {info  && <p className="text-xs text-emerald-600">{info}</p>}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
-              >
-                {loading ? (mode === 'signup' ? 'Creating…' : 'Signing in…') : (mode === 'signup' ? 'Create Account' : 'Sign In')}
-              </button>
-              {mode === 'signin' && (
-                <button
-                  type="button"
-                  onClick={() => { setMode('reset'); setError(null); setInfo(null); }}
-                  className="w-full text-xs text-gray-400 hover:text-gray-600 py-1"
-                >
-                  Forgot password?
-                </button>
-              )}
-            </form>
-          )}
+            )}
+          </form>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-4">
-          Your data is encrypted and synced across all your devices.
+        <p
+          className="text-center"
+          style={{ font: '400 11px/1.5 var(--font-sans)', color: 'var(--ink-subtle)', marginTop: 16 }}
+        >
+          🔒 Your data is encrypted and synced across all your devices.
         </p>
       </div>
     </div>

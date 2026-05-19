@@ -261,13 +261,20 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
 
   return (
     <div className="space-y-4">
-      {/* Period selector */}
-      <div className="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 gap-1">
+      {/* Period selector — Spendora segmented control */}
+      <div
+        className="flex p-1 gap-1 s-pressable"
+        style={{ background: 'var(--surface-muted)', borderRadius: 'var(--radius-pill)' }}
+      >
         {PERIOD_LABELS.map(({ id, label }) => (
           <button key={id} onClick={() => setPeriod(id)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              period === id ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
-            }`}>
+            className="s-button flex-1 py-1.5 transition-all"
+            style={{
+              borderRadius: 'var(--radius-pill)',
+              background: period === id ? 'var(--surface-card)' : 'transparent',
+              color: period === id ? 'var(--brand-600)' : 'var(--ink-muted)',
+              boxShadow: period === id ? 'var(--shadow-card)' : 'none',
+            }}>
             {label}
           </button>
         ))}
@@ -327,17 +334,34 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
         </div>
       ) : (
         <>
-          {/* Summary cards */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-blue-600 text-white rounded-2xl p-4 shadow-sm">
-              <p className="text-xs uppercase tracking-wide opacity-70">Total Spend</p>
-              <p className="text-2xl font-bold mt-1">{fmt(total)}</p>
-              <p className="text-xs opacity-60 mt-1">{filtered.length} spend{filtered.length !== 1 ? 's' : ''}</p>
+          {/* Hero total — brand-gradient summary card */}
+          <div
+            style={{
+              background: 'linear-gradient(135deg, var(--brand-600), var(--brand-700))',
+              borderRadius: 'var(--radius-lg)',
+              padding: 'var(--space-5)',
+              color: 'var(--ink-on-brand)',
+              boxShadow: 'var(--shadow-card)',
+            }}
+          >
+            <div className="s-section-label" style={{ color: 'rgba(255,255,255,0.7)' }}>
+              Total spend
             </div>
-            <div className="bg-emerald-500 text-white rounded-2xl p-4 shadow-sm">
-              <p className="text-xs uppercase tracking-wide opacity-70">Avg per Spend</p>
-              <p className="text-2xl font-bold mt-1">{fmt(avgPerReceipt)}</p>
-              <p className="text-xs opacity-60 mt-1">{itemCount} item{itemCount !== 1 ? 's' : ''} tracked</p>
+            <div
+              className="s-amount-hero"
+              style={{ color: 'var(--ink-on-brand)', marginTop: 'var(--space-1)' }}
+            >
+              {fmt(total)}
+            </div>
+            <div
+              className="s-body-strong"
+              style={{ color: 'rgba(255,255,255,0.78)', marginTop: 'var(--space-2)' }}
+            >
+              {filtered.length} spend{filtered.length !== 1 ? 's' : ''}
+              <span style={{ opacity: 0.5, margin: '0 8px' }}>·</span>
+              avg {fmt(avgPerReceipt)}
+              <span style={{ opacity: 0.5, margin: '0 8px' }}>·</span>
+              {itemCount} item{itemCount !== 1 ? 's' : ''}
             </div>
           </div>
 

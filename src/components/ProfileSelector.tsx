@@ -69,7 +69,7 @@ export default function ProfileSelector({ profiles, onSelect, onCreateAndSelect 
 
           <button
             onClick={() => setCreating(true)}
-            className="w-full border-2 border-dashed border-gray-300 rounded-2xl py-3 text-sm text-gray-500 font-medium hover:border-blue-300 hover:text-blue-500 transition-colors"
+            className="w-full border-2 border-dashed border-gray-300 rounded-2xl py-3 text-sm text-gray-500 font-medium hover:border-[var(--brand-300)] hover:text-blue-500 transition-colors"
           >
             + Add new profile
           </button>
@@ -112,7 +112,7 @@ export default function ProfileSelector({ profiles, onSelect, onCreateAndSelect 
                   type="button"
                   onClick={() => setEmoji(e)}
                   className={`text-2xl py-1.5 rounded-xl transition-colors ${
-                    emoji === e ? 'bg-blue-100 ring-2 ring-blue-400' : 'hover:bg-gray-100'
+                    emoji === e ? 'bg-[var(--brand-100)] ring-2 ring-blue-400' : 'hover:bg-gray-100'
                   }`}
                 >
                   {e}
@@ -153,7 +153,7 @@ export default function ProfileSelector({ profiles, onSelect, onCreateAndSelect 
               type="button"
               onClick={handleCreate}
               disabled={!name.trim()}
-              className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-sm font-semibold hover:bg-[var(--brand-700)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Get Started
             </button>

@@ -97,7 +97,7 @@ export default function ManualEditModal({ item, onSave, onClose }: Props) {
                     onClick={() => setCategory(cat)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm border transition-colors ${
                       category === cat
-                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                        ? 'border-[var(--brand-500)] bg-[var(--brand-50)] text-[var(--brand-700)] font-medium'
                         : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                     }`}
                   >
@@ -119,7 +119,7 @@ export default function ManualEditModal({ item, onSave, onClose }: Props) {
             </button>
             <button
               type="submit"
-              className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-blue-700"
+              className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-[var(--brand-700)]"
             >
               Save
             </button>

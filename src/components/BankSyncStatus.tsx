@@ -25,7 +25,7 @@ export default function BankSyncStatus({ userId }: { userId: string }) {
         ? { dot: 'bg-amber-400', text: 'Paused', cls: 'text-amber-600 dark:text-amber-400' }
         : s.connected
           ? { dot: 'bg-emerald-500', text: `Connected · last ${timeAgo(s.lastReceivedAt)}`, cls: 'text-emerald-600 dark:text-emerald-400' }
-          : { dot: 'bg-blue-400 badge-sync-pulse', text: 'Waiting for first transaction…', cls: 'text-blue-600 dark:text-blue-400' };
+          : { dot: 'bg-[var(--brand-400)] badge-sync-pulse', text: 'Waiting for first transaction…', cls: 'text-blue-600 dark:text-[var(--brand-400)]' };
 
   return (
     <span className="flex items-center gap-1.5">
