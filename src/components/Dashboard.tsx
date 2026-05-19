@@ -1,11 +1,8 @@
 import { useState, useMemo } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, CartesianGrid,
-} from 'recharts';
 import { Receipt, Category, CategorySummary, UserBudgets } from '../types';
 import { CATEGORY_META } from '../utils/categoryClassifier';
 import { useCurrency } from '../contexts/CurrencyContext';
+import ProgressBar from './ui/ProgressBar';
 
 type Period = 'week' | 'month' | 'all';
 
@@ -19,9 +16,9 @@ interface Props {
 }
 
 const PERIOD_LABELS: { id: Period; label: string }[] = [
-  { id: 'week',  label: 'This Week'  },
-  { id: 'month', label: 'This Month' },
-  { id: 'all',   label: 'All Time'   },
+  { id: 'week',  label: 'Week'  },
+  { id: 'month', label: 'Month' },
+  { id: 'all',   label: 'All'   },
 ];
 
 function filterByPeriod(receipts: Receipt[], period: Period): Receipt[] {
@@ -59,148 +56,66 @@ function buildSummaries(receipts: Receipt[]): { summaries: CategorySummary[]; to
   return { summaries, total: Math.round(total * 100) / 100, itemCount };
 }
 
-// Build daily spending data for the bar chart
-function buildDailyData(receipts: Receipt[], days: number) {
-  const map: Record<string, number> = {};
+// 14-day spending buckets for the hero mini-bar viz.
+function buildDailyBuckets(receipts: Receipt[], days: number): { key: string; sum: number }[] {
   const now = new Date();
+  const out: { key: string; sum: number }[] = [];
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    map[key] = 0;
+    const d = new Date(now); d.setDate(now.getDate() - i);
+    const key = d.toDateString();
+    const sum = receipts
+      .filter((r) => new Date(r.date).toDateString() === key)
+      .reduce((s, r) => s + r.total, 0);
+    out.push({ key, sum });
   }
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() - days);
-  for (const r of receipts) {
-    const d = new Date(r.date);
-    if (d < cutoff) continue;
-    const key = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    if (key in map) map[key] = (map[key] ?? 0) + r.total;
-  }
-  return Object.entries(map).map(([date, amount]) => ({ date, amount: Math.round(amount * 100) / 100 }));
+  return out;
 }
 
-// Detect recurring/subscription charges (same store ~monthly, ≥2 times)
-interface Subscription {
-  store: string;
-  avgAmount: number;
-  count: number;
-  lastDate: string;
-  nextEstimate: string; // estimated next charge date
-}
+interface Subscription { store: string; avgAmount: number; count: number; category: Category; }
 
 function buildSubscriptions(receipts: Receipt[]): Subscription[] {
   const storeMap: Record<string, Receipt[]> = {};
   for (const r of receipts) {
-    if (!storeMap[r.storeName]) storeMap[r.storeName] = [];
-    storeMap[r.storeName].push(r);
+    (storeMap[r.storeName] ||= []).push(r);
   }
-
   const subs: Subscription[] = [];
   for (const [store, recs] of Object.entries(storeMap)) {
     if (recs.length < 2) continue;
     const sorted = [...recs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // Check if any consecutive pair is ~28–36 days apart (monthly cadence)
     let isRecurring = false;
-    let gapDays = 30;
     for (let i = 1; i < sorted.length; i++) {
-      const days = (new Date(sorted[i].date).getTime() - new Date(sorted[i - 1].date).getTime()) / 86400000;
-      if (days >= 26 && days <= 38) { isRecurring = true; gapDays = Math.round(days); break; }
+      const gap = (new Date(sorted[i].date).getTime() - new Date(sorted[i - 1].date).getTime()) / 86400000;
+      if (gap >= 26 && gap <= 38) { isRecurring = true; break; }
     }
     if (!isRecurring) continue;
-
     const avgAmount = Math.round(recs.reduce((s, r) => s + r.total, 0) / recs.length * 100) / 100;
-    const lastDate  = sorted[sorted.length - 1].date;
-    const next      = new Date(lastDate);
-    next.setDate(next.getDate() + gapDays);
-
-    subs.push({ store, avgAmount, count: recs.length, lastDate, nextEstimate: next.toISOString() });
+    const category = (recs[0].items[0]?.category ?? 'other') as Category;
+    subs.push({ store, avgAmount, count: recs.length, category });
   }
-  return subs.sort((a, b) => b.avgAmount - a.avgAmount);
+  return subs.sort((a, b) => b.avgAmount - a.avgAmount).slice(0, 4);
 }
 
-// Build spending insights for the period
-interface Insight {
-  emoji: string;
-  label: string;
-  value: string;
+function dominantCategory(r: Receipt): Category {
+  const counts: Partial<Record<Category, number>> = {};
+  for (const it of r.items) counts[it.category] = (counts[it.category] ?? 0) + 1;
+  return (Object.entries(counts).sort((a, b) => b[1]! - a[1]!)[0]?.[0] as Category) ?? 'other';
 }
 
-function buildInsights(receipts: Receipt[], fmtFn: (n: number) => string): Insight[] {
-  if (receipts.length === 0) return [];
-  const insights: Insight[] = [];
+const SECTION_LABEL: React.CSSProperties = {
+  font: '700 11px var(--font-sans)', letterSpacing: '0.08em',
+  textTransform: 'uppercase', color: 'var(--ink-muted)',
+  padding: '0 4px 8px',
+};
+const CARD: React.CSSProperties = {
+  background: 'var(--surface-card)', border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden',
+};
 
-  // Biggest single receipt
-  const biggest = receipts.reduce((max, r) => r.total > max.total ? r : max, receipts[0]);
-  insights.push({ emoji: '🏆', label: 'Biggest purchase', value: `${fmtFn(biggest.total)} at ${biggest.storeName}` });
+export default function Dashboard({ receipts, budgets: _budgets, onGoToScan, onOpenBudgets, onOpenWrapped, onOpenBankConnect }: Props) {
+  const [period, setPeriod] = useState<Period>('month');
+  const { fmt, convert, currency } = useCurrency();
 
-  // Most frequent store
-  const storeCounts: Record<string, number> = {};
-  for (const r of receipts) storeCounts[r.storeName] = (storeCounts[r.storeName] ?? 0) + 1;
-  const topStore = Object.entries(storeCounts).sort((a, b) => b[1] - a[1])[0];
-  if (topStore && topStore[1] > 1) {
-    insights.push({ emoji: '🔁', label: 'Most visited', value: `${topStore[0]} (${topStore[1]}x)` });
-  }
-
-  // Busiest day of week
-  const dayTotals: number[] = Array(7).fill(0);
-  for (const r of receipts) dayTotals[new Date(r.date).getDay()] += r.total;
-  const busiestDay = dayTotals.indexOf(Math.max(...dayTotals));
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  if (Math.max(...dayTotals) > 0) {
-    insights.push({ emoji: '📅', label: 'Biggest spend day', value: dayNames[busiestDay] });
-  }
-
-  // Average time between receipts (spending cadence)
-  if (receipts.length >= 3) {
-    const sorted = [...receipts].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const span = new Date(sorted[sorted.length - 1].date).getTime() - new Date(sorted[0].date).getTime();
-    const avgDays = span / (1000 * 60 * 60 * 24) / (receipts.length - 1);
-    if (avgDays < 30) {
-      insights.push({ emoji: '⚡', label: 'Shopping frequency', value: `Every ${avgDays < 1.5 ? 'day' : `${Math.round(avgDays)} days`}` });
-    }
-  }
-
-  return insights.slice(0, 4);
-}
-
-// Build 4-week trend data
-function buildWeeklyTrend(receipts: Receipt[]) {
-  const weeks: { week: string; amount: number }[] = [];
-  const now = new Date();
-  for (let i = 3; i >= 0; i--) {
-    const start = new Date(now);
-    start.setDate(start.getDate() - (i + 1) * 7);
-    const end = new Date(now);
-    end.setDate(end.getDate() - i * 7);
-    const total = receipts
-      .filter((r) => { const d = new Date(r.date); return d >= start && d < end; })
-      .reduce((s, r) => s + r.total, 0);
-    weeks.push({ week: i === 0 ? 'This week' : `${i}w ago`, amount: Math.round(total * 100) / 100 });
-  }
-  return weeks;
-}
-
-function CustomTooltip({ active, payload, label, symbol }: { active?: boolean; payload?: { value: number }[]; label?: string; symbol: string }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-3 py-2 shadow-lg text-xs">
-      <p className="text-gray-500 dark:text-gray-400">{label}</p>
-      <p className="font-bold text-gray-900 dark:text-white">{symbol}{payload[0].value.toFixed(2)}</p>
-    </div>
-  );
-}
-
-export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets, onOpenWrapped, onOpenBankConnect }: Props) {
-  const [period,    setPeriod]    = useState<Period>('month');
-  const [chartView, setChartView] = useState<'bar' | 'pie' | 'trend'>('bar');
-  const { fmt, symbol, convert, currency } = useCurrency();
-
-  // Single source of truth for ALL Dashboard math: every amount converted from
-  // its receipt's original currency into the display currency exactly once.
-  // Originals are never mutated (new objects); every builder below consumes
-  // this so there are no raw/partial conversion paths anywhere on this screen.
+  // Currency-correct source of truth: convert every amount once, never mutate.
   const viewReceipts = useMemo(
     () => receipts.map((r) => ({
       ...r,
@@ -211,47 +126,49 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
     [receipts, convert, currency],
   );
 
-  const filtered     = useMemo(() => filterByPeriod(viewReceipts, period), [viewReceipts, period]);
-  const lastMonth    = useMemo(() => filterLastMonth(viewReceipts), [viewReceipts]);
-  const { summaries, total, itemCount } = useMemo(() => buildSummaries(filtered), [filtered]);
-  const { total: lastMonthTotal }       = useMemo(() => buildSummaries(lastMonth), [lastMonth]);
-
-  const topCategory   = summaries[0] ?? null;
-  const avgPerReceipt = filtered.length > 0 ? total / filtered.length : 0;
-  const activeBudgets = period === 'week' ? budgets.weekly : period === 'month' ? budgets.monthly : {};
-  const hasBudgets    = Object.values(activeBudgets).some((v) => v !== undefined);
-
-  const monthDiff    = total - lastMonthTotal;
-  const monthDiffPct = lastMonthTotal > 0 ? (monthDiff / lastMonthTotal) * 100 : null;
-
-  const dailyData     = useMemo(() => buildDailyData(viewReceipts, period === 'week' ? 7 : period === 'month' ? 30 : 60), [viewReceipts, period]);
-  const weeklyData    = useMemo(() => buildWeeklyTrend(viewReceipts), [viewReceipts]);
-  const pieData       = summaries.map((s) => ({ name: s.label, value: Math.round(s.total * 100) / 100, color: s.color, emoji: s.emoji }));
-  const insights      = useMemo(() => buildInsights(filtered, fmt), [filtered, fmt]);
+  const filtered   = useMemo(() => filterByPeriod(viewReceipts, period), [viewReceipts, period]);
+  const lastMonth  = useMemo(() => filterLastMonth(viewReceipts), [viewReceipts]);
+  const { summaries, total } = useMemo(() => buildSummaries(filtered), [filtered]);
+  const { total: lastMonthTotal } = useMemo(() => buildSummaries(lastMonth), [lastMonth]);
+  const bars         = useMemo(() => buildDailyBuckets(viewReceipts, 14), [viewReceipts]);
   const subscriptions = useMemo(() => buildSubscriptions(viewReceipts), [viewReceipts]);
+  const recent = useMemo(
+    () => [...filtered].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6),
+    [filtered],
+  );
 
-  // Data-source breakdown (scanned vs bank)
-  const scannedCount  = receipts.filter((r) => !r.source || r.source === 'scan').length;
-  const bankCount     = receipts.filter((r) => r.source === 'bank-sync' || r.source === 'bank-import').length;
-  const hasBankData   = bankCount > 0;
+  const top = summaries[0] ?? null;
+  const maxBar = Math.max(...bars.map((b) => b.sum), 1);
+  const monthDiff = total - lastMonthTotal;
+  const monthDiffPct = lastMonthTotal > 0 ? Math.round((monthDiff / lastMonthTotal) * 100) : null;
 
   if (receipts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-        <div className="text-6xl">📈</div>
+      <div
+        className="flex flex-col items-center justify-center text-center"
+        style={{ padding: '80px 24px', gap: 'var(--space-4)' }}
+      >
+        <div style={{
+          width: 96, height: 96, borderRadius: 28, background: 'var(--brand-50)',
+          display: 'grid', placeItems: 'center', fontSize: 44,
+        }}>📈</div>
         <div>
-          <p className="font-semibold text-gray-700 dark:text-gray-200 text-lg">No spending yet</p>
-          <p className="text-sm text-gray-400 mt-1">Connect your bank or add a purchase to see your spending insights</p>
+          <p className="s-h2">Your spending story starts here</p>
+          <p className="s-body" style={{ marginTop: 4, color: 'var(--ink-muted)' }}>
+            Connect your email or add a spend to see automatic insights.
+          </p>
         </div>
-        <div className="flex gap-2 mt-2">
-          {onGoToScan && (
-            <button onClick={onGoToScan} className="bg-teal-700 text-white px-5 py-2.5 rounded-2xl font-semibold text-sm shadow-sm hover:bg-teal-800 transition-colors">
-              Add a purchase
+        <div className="flex" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+          {onOpenBankConnect && (
+            <button onClick={onOpenBankConnect} className="s-button s-pressable"
+              style={{ background: 'var(--brand-600)', color: 'var(--ink-on-brand)', borderRadius: 'var(--radius-lg)', padding: '12px 20px', boxShadow: 'var(--shadow-card)' }}>
+              Connect email
             </button>
           )}
-          {onOpenBankConnect && (
-            <button onClick={onOpenBankConnect} className="bg-indigo-600 text-white px-5 py-2.5 rounded-2xl font-semibold text-sm shadow-sm hover:bg-indigo-700 transition-colors">
-              🏦 Connect Bank
+          {onGoToScan && (
+            <button onClick={onGoToScan} className="s-button s-pressable"
+              style={{ background: 'var(--surface-muted)', color: 'var(--ink-secondary)', borderRadius: 'var(--radius-lg)', padding: '12px 20px' }}>
+              Add a spend
             </button>
           )}
         </div>
@@ -260,15 +177,15 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
   }
 
   return (
-    <div className="space-y-4">
-      {/* Period selector — Spendora segmented control */}
-      <div
-        className="flex p-1 gap-1 s-pressable"
-        style={{ background: 'var(--surface-muted)', borderRadius: 'var(--radius-pill)' }}
-      >
+    <div
+      className="flex flex-col"
+      style={{ gap: 14, animation: 'fade-slide var(--dur-base) var(--ease-out-soft) both' }}
+    >
+      {/* Period segmented control */}
+      <div className="flex p-1" style={{ gap: 4, background: 'var(--surface-muted)', borderRadius: 'var(--radius-pill)' }}>
         {PERIOD_LABELS.map(({ id, label }) => (
           <button key={id} onClick={() => setPeriod(id)}
-            className="s-button flex-1 py-1.5 transition-all"
+            className="s-button s-pressable flex-1 py-1.5"
             style={{
               borderRadius: 'var(--radius-pill)',
               background: period === id ? 'var(--surface-card)' : 'transparent',
@@ -280,348 +197,164 @@ export default function Dashboard({ receipts, budgets, onGoToScan, onOpenBudgets
         ))}
       </div>
 
-      {/* Data source summary — shown when bank data is present */}
-      {hasBankData && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Data Sources</h3>
-            {onOpenBankConnect && (
-              <button onClick={onOpenBankConnect} className="text-xs text-blue-600 font-medium hover:underline">
-                + Add bank
-              </button>
-            )}
+      {/* Hero total */}
+      <div style={{
+        background: 'linear-gradient(135deg, var(--brand-600), var(--brand-700))',
+        borderRadius: 'var(--radius-lg)', padding: 'var(--space-5)',
+        color: 'var(--ink-on-brand)', boxShadow: 'var(--shadow-card)',
+      }}>
+        <div className="s-section-label" style={{ color: 'rgba(255,255,255,0.7)' }}>Total spend</div>
+        <div className="s-amount-hero" style={{ color: 'var(--ink-on-brand)', marginTop: 'var(--space-1)' }}>
+          {fmt(total)}
+        </div>
+        <div className="s-body-strong" style={{ color: 'rgba(255,255,255,0.78)', marginTop: 'var(--space-2)' }}>
+          {filtered.length} spend{filtered.length !== 1 ? 's' : ''}
+          <span style={{ opacity: 0.5, margin: '0 8px' }}>·</span>
+          {summaries.length} categories
+          {monthDiffPct !== null && (
+            <>
+              <span style={{ opacity: 0.5, margin: '0 8px' }}>·</span>
+              {monthDiff >= 0 ? '▲' : '▼'} {Math.abs(monthDiffPct)}% vs last month
+            </>
+          )}
+        </div>
+        <div className="flex items-end" style={{ gap: 3, height: 36, marginTop: 18 }}>
+          {bars.map((b, i) => (
+            <div key={i} style={{
+              flex: 1, minHeight: 2, borderRadius: 2,
+              height: `${Math.max(2, (b.sum / maxBar) * 100)}%`,
+              background: b.sum > 0 ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.18)',
+            }} />
+          ))}
+        </div>
+      </div>
+
+      {/* Top category */}
+      {top && (
+        <div style={{ ...CARD, padding: 14 }} className="flex items-center" >
+          <div style={{
+            width: 44, height: 44, borderRadius: 14, marginRight: 12,
+            background: (top.color ?? '#6B7280') + '21',
+            display: 'grid', placeItems: 'center', fontSize: 22, flexShrink: 0,
+          }}>{top.emoji}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="s-section-label" style={{ padding: 0 }}>Top category</div>
+            <div style={{ font: '700 15px var(--font-sans)', color: 'var(--ink)', marginTop: 2 }}>{top.label}</div>
           </div>
-          <div className="px-4 py-3 flex gap-4">
-            {scannedCount > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{scannedCount} added manually</p>
-                  <p className="text-[10px] text-gray-400">Manual entry</p>
-                </div>
-              </div>
-            )}
-            {bankCount > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
-                <div>
-                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300">{bankCount} from bank</p>
-                  <p className="text-[10px] text-gray-400">Auto-categorised</p>
-                </div>
-              </div>
-            )}
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ font: '700 18px var(--font-sans)', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(top.total)}</div>
+            <div style={{ font: '500 11px var(--font-sans)', color: 'var(--ink-muted)', marginTop: 2 }}>
+              {total > 0 ? Math.round((top.total / total) * 100) : 0}%
+            </div>
           </div>
         </div>
       )}
 
-      {!hasBankData && onOpenBankConnect && (
-        <button
-          onClick={onOpenBankConnect}
-          className="w-full flex items-center gap-3 bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow text-left"
-        >
-          <span className="text-2xl">🏦</span>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-gray-800 dark:text-white">Connect your bank</p>
-            <p className="text-xs text-gray-400">Import transactions automatically — no manual entry needed</p>
+      {/* Category breakdown */}
+      <div>
+        <div style={SECTION_LABEL}>Where it goes</div>
+        {filtered.length === 0 ? (
+          <div style={{ ...CARD, padding: 24, textAlign: 'center' }}>
+            <p className="s-body" style={{ color: 'var(--ink-muted)' }}>No spends in this period.</p>
           </div>
-          <span className="text-gray-300 dark:text-gray-600 text-lg shrink-0">›</span>
-        </button>
-      )}
-
-      {filtered.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-10 text-center shadow-sm">
-          <p className="text-gray-400 text-sm">No spends in this period</p>
-        </div>
-      ) : (
-        <>
-          {/* Hero total — brand-gradient summary card */}
-          <div
-            style={{
-              background: 'linear-gradient(135deg, var(--brand-600), var(--brand-700))',
-              borderRadius: 'var(--radius-lg)',
-              padding: 'var(--space-5)',
-              color: 'var(--ink-on-brand)',
-              boxShadow: 'var(--shadow-card)',
-            }}
-          >
-            <div className="s-section-label" style={{ color: 'rgba(255,255,255,0.7)' }}>
-              Total spend
-            </div>
-            <div
-              className="s-amount-hero"
-              style={{ color: 'var(--ink-on-brand)', marginTop: 'var(--space-1)' }}
-            >
-              {fmt(total)}
-            </div>
-            <div
-              className="s-body-strong"
-              style={{ color: 'rgba(255,255,255,0.78)', marginTop: 'var(--space-2)' }}
-            >
-              {filtered.length} spend{filtered.length !== 1 ? 's' : ''}
-              <span style={{ opacity: 0.5, margin: '0 8px' }}>·</span>
-              avg {fmt(avgPerReceipt)}
-              <span style={{ opacity: 0.5, margin: '0 8px' }}>·</span>
-              {itemCount} item{itemCount !== 1 ? 's' : ''}
-            </div>
-          </div>
-
-          {/* Spending Wrapped CTA */}
-          {onOpenWrapped && receipts.length >= 3 && (
-            <button onClick={onOpenWrapped}
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:opacity-95 active:scale-[0.99] transition-all">
-              <span className="text-3xl">🎉</span>
-              <div className="text-left">
-                <p className="font-semibold text-sm">Your Monthly Spending Wrapped</p>
-                <p className="text-xs opacity-70">Generate a shareable summary card</p>
-              </div>
-              <span className="ml-auto text-white/60 text-lg">›</span>
-            </button>
-          )}
-
-          {/* Monthly comparison */}
-          {period === 'month' && lastMonthTotal > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm flex items-center gap-3">
-              <span className="text-2xl">{monthDiff > 0 ? '📈' : '📉'}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">vs Last Month</p>
-                <p className="font-semibold text-gray-800 dark:text-white">
-                  {monthDiff >= 0 ? '+' : '−'}{fmt(monthDiff)}
-                </p>
-              </div>
-              <div className="text-right shrink-0">
-                {monthDiffPct !== null && (
-                  <span className={`text-sm font-bold ${monthDiff > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                    {monthDiff > 0 ? '▲' : '▼'} {Math.abs(monthDiffPct).toFixed(0)}%
-                  </span>
-                )}
-                <p className="text-xs text-gray-400">last month {fmt(lastMonthTotal)}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Top category */}
-          {topCategory && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm flex items-center gap-3">
-              <span className="text-3xl">{topCategory.emoji}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Top Category</p>
-                <p className="font-semibold text-gray-800 dark:text-white">{topCategory.label}</p>
-                <p className="text-xs text-gray-400">{topCategory.count} item{topCategory.count !== 1 ? 's' : ''}</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="font-bold text-gray-900 dark:text-white">{fmt(topCategory.total)}</p>
-                <p className="text-xs text-gray-400">{total > 0 ? ((topCategory.total / total) * 100).toFixed(0) : 0}% of total</p>
-              </div>
-            </div>
-          )}
-
-          {/* Smart Insights */}
-          {insights.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Smart Insights</h3>
-              </div>
-              <ul className="divide-y divide-gray-50 dark:divide-gray-700">
-                {insights.map((ins, i) => (
-                  <li key={i} className="px-4 py-2.5 flex items-center gap-3">
-                    <span className="text-xl w-7 shrink-0 text-center">{ins.emoji}</span>
-                    <div className="min-w-0">
-                      <p className="text-xs text-gray-400 leading-tight">{ins.label}</p>
-                      <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{ins.value}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Recurring / Subscriptions */}
-          {subscriptions.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                <h3 className="font-semibold text-gray-800 dark:text-white text-sm">🔄 Recurring Charges</h3>
-                <span className="text-xs text-gray-400">
-                  ₪{subscriptions.reduce((s, r) => s + r.avgAmount, 0).toFixed(0)}/mo
-                </span>
-              </div>
-              <ul className="divide-y divide-gray-50 dark:divide-gray-700">
-                {subscriptions.map((sub) => {
-                  const daysUntil = Math.round((new Date(sub.nextEstimate).getTime() - Date.now()) / 86400000);
-                  const soon = daysUntil >= 0 && daysUntil <= 7;
-                  return (
-                    <li key={sub.store} className="px-4 py-3 flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-lg shrink-0">
-                        🔁
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{sub.store}</p>
-                        <p className="text-xs text-gray-400">
-                          {sub.count}× detected ·{' '}
-                          {soon
-                            ? <span className="text-amber-500 font-medium">due in {daysUntil}d</span>
-                            : `next ~${new Date(sub.nextEstimate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold text-purple-600 dark:text-purple-400 shrink-0">
-                        {fmt(sub.avgAmount)}
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div className="px-4 py-2.5 border-t border-gray-50 dark:border-gray-700">
-                <p className="text-xs text-gray-400 text-center">
-                  Detected from stores you visit monthly — review to cancel unwanted charges
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Chart section */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Spending Chart</h3>
-              <div className="flex gap-1">
-                {(['bar', 'trend', 'pie'] as const).map((v) => (
-                  <button key={v} onClick={() => setChartView(v)}
-                    className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${
-                      chartView === v
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 dark:text-gray-500 hover:text-gray-600'
-                    }`}>
-                    {v === 'bar' ? '📊 Daily' : v === 'trend' ? '📈 Trend' : '🥧 Split'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="p-4">
-              {chartView === 'bar' && (
-                <ResponsiveContainer width="100%" height={160}>
-                  <BarChart data={dailyData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#9ca3af' }} interval={period === 'week' ? 0 : 5} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${symbol}${v}`} />
-                    <Tooltip content={<CustomTooltip symbol={symbol} />} cursor={{ fill: 'rgba(59,130,246,0.08)' }} />
-                    <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={24} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-              {chartView === 'trend' && (
-                <ResponsiveContainer width="100%" height={160}>
-                  <LineChart data={weeklyData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                    <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 9, fill: '#9ca3af' }} tickLine={false} axisLine={false} tickFormatter={(v) => `${symbol}${v}`} />
-                    <Tooltip content={<CustomTooltip symbol={symbol} />} />
-                    <Line type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={2.5} dot={{ fill: '#3b82f6', r: 4 }} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-              {chartView === 'pie' && pieData.length > 0 && (
-                <div className="flex items-center gap-4">
-                  <ResponsiveContainer width={140} height={140}>
-                    <PieChart>
-                      <Pie data={pieData} cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={2} dataKey="value">
-                        {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip formatter={(v) => typeof v === 'number' ? `${fmt(v)}` : String(v)} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex-1 space-y-1.5 min-w-0">
-                    {pieData.slice(0, 5).map((d) => (
-                      <div key={d.name} className="flex items-center gap-1.5">
-                        <span className="text-xs">{d.emoji}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-600 dark:text-gray-300 truncate">{d.name}</span>
-                            <span className="font-medium text-gray-800 dark:text-white ml-1 shrink-0">{symbol}{d.value.toFixed(0)}</span>
-                          </div>
-                          <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1 mt-0.5">
-                            <div className="h-1 rounded-full" style={{ width: `${total > 0 ? (d.value / total) * 100 : 0}%`, backgroundColor: d.color }} />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+        ) : (
+          <div style={CARD}>
+            {summaries.map((s, i) => {
+              const pct = total > 0 ? (s.total / total) * 100 : 0;
+              return (
+                <div key={s.category} style={{
+                  padding: '12px 14px',
+                  borderBottom: i < summaries.length - 1 ? '1px solid var(--color-border)' : 'none',
+                }}>
+                  <div className="flex items-center" style={{ gap: 10, marginBottom: 8 }}>
+                    <span style={{ fontSize: 17 }}>{s.emoji}</span>
+                    <span style={{ flex: 1, font: '600 14px var(--font-sans)', color: 'var(--ink)' }}>{s.label}</span>
+                    <span style={{ font: '600 14px var(--font-sans)', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(s.total)}</span>
+                    <span style={{ font: '500 11px var(--font-sans)', color: 'var(--ink-muted)', minWidth: 32, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{Math.round(pct)}%</span>
                   </div>
+                  <ProgressBar value={pct} color={s.color} />
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
+        )}
+      </div>
 
-          {/* Category breakdown with budgets */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-              <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Category Breakdown</h3>
-              {period !== 'all' && onOpenBudgets && (
-                <button onClick={onOpenBudgets} className="text-xs text-blue-600 font-medium hover:underline">
-                  {hasBudgets ? 'Edit Budgets' : '+ Set Budgets'}
-                </button>
-              )}
-            </div>
-            <ul className="divide-y divide-gray-50 dark:divide-gray-700">
-              {summaries.map((s) => {
-                const pct        = total > 0 ? (s.total / total) * 100 : 0;
-                const budget     = activeBudgets[s.category];
-                const budgetPct  = budget ? Math.min((s.total / budget) * 100, 200) : null;
-                const overBudget = budget && s.total > budget;
-                const nearBudget = budget && !overBudget && s.total / budget > 0.8;
-                const barColor   = overBudget ? '#EF4444' : nearBudget ? '#F59E0B' : s.color;
-                return (
-                  <li key={s.category} className={`px-4 py-3 space-y-1.5 ${overBudget ? 'bg-red-50 dark:bg-red-900/20' : ''}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{s.emoji}</span>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{s.label}</span>
-                        <span className="text-xs text-gray-400">({s.count})</span>
-                        {overBudget && <span className="text-xs text-red-600 font-semibold">Over!</span>}
-                      </div>
-                      <div className="text-right">
-                        <span className="font-semibold text-gray-900 dark:text-white text-sm">{fmt(s.total)}</span>
-                        {budget
-                          ? <span className="text-xs text-gray-400 ml-1">/ {symbol}{budget.toFixed(0)}</span>
-                          : <span className="text-xs text-gray-400 ml-1">{pct.toFixed(0)}%</span>}
-                      </div>
-                    </div>
-                    <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-                      <div className="h-1.5 rounded-full transition-all duration-500"
-                        style={{ width: `${budgetPct !== null ? Math.min(budgetPct, 100) : pct}%`, backgroundColor: barColor }} />
-                    </div>
-                    {budget && (
-                      <p className="text-xs text-gray-400">
-                        {overBudget
-                          ? `${fmt(s.total - budget)} over ${period === 'week' ? 'weekly' : 'monthly'} budget`
-                          : `${fmt(budget - s.total)} remaining`}
-                      </p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-
-          {/* Recent receipts */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-800 dark:text-white text-sm">Recent Spends</h3>
-            </div>
-            <ul className="divide-y divide-gray-50 dark:divide-gray-700">
-              {filtered.slice(0, 5).map((r) => (
-                <li key={r.id} className="px-4 py-3 flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-medium text-gray-800 dark:text-white truncate">{r.storeName}</p>
-                      {r.source === 'bank-sync' && <span className="text-[9px] bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 px-1.5 rounded-full font-semibold shrink-0">🏦</span>}
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      {new Date(r.date).toLocaleDateString()} · {r.items.length} item{r.items.length !== 1 ? 's' : ''}
-                    </p>
+      {/* Subscriptions */}
+      {subscriptions.length > 0 && (
+        <div>
+          <div style={SECTION_LABEL}>Recurring</div>
+          <div style={CARD}>
+            {subscriptions.map((sub, i) => {
+              const meta = CATEGORY_META[sub.category] ?? CATEGORY_META.other;
+              return (
+                <div key={sub.store} className="flex items-center" style={{
+                  gap: 12, padding: '12px 14px',
+                  borderBottom: i < subscriptions.length - 1 ? '1px solid var(--color-border)' : 'none',
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 12, flexShrink: 0,
+                    background: (meta.color ?? '#6B7280') + '21',
+                    display: 'grid', placeItems: 'center', fontSize: 17,
+                  }}>{meta.emoji}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ font: '600 14px var(--font-sans)', color: 'var(--ink)' }} className="truncate">{sub.store}</div>
+                    <div style={{ font: '400 11px var(--font-sans)', color: 'var(--ink-muted)', marginTop: 2 }}>~monthly · {sub.count}×</div>
                   </div>
-                  <p className="text-sm font-semibold text-blue-600 ml-3 shrink-0">{fmt(r.total)}</p>
-                </li>
-              ))}
-            </ul>
+                  <span style={{ font: '700 14px var(--font-sans)', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(sub.avgAmount)}</span>
+                </div>
+              );
+            })}
           </div>
-        </>
+        </div>
       )}
+
+      {/* Recent activity */}
+      {recent.length > 0 && (
+        <div>
+          <div style={SECTION_LABEL}>Recent</div>
+          <div style={CARD}>
+            {recent.map((r, i) => {
+              const meta = CATEGORY_META[dominantCategory(r)] ?? CATEGORY_META.other;
+              return (
+                <div key={r.id} className="flex items-center" style={{
+                  gap: 12, padding: '12px 14px',
+                  borderBottom: i < recent.length - 1 ? '1px solid var(--color-border)' : 'none',
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 12, flexShrink: 0,
+                    background: (meta.color ?? '#6B7280') + '21',
+                    display: 'grid', placeItems: 'center', fontSize: 17,
+                  }}>{meta.emoji}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ font: '600 14px var(--font-sans)', color: 'var(--ink)' }} className="truncate">{r.storeName}</div>
+                    <div style={{ font: '400 11px var(--font-sans)', color: 'var(--ink-muted)', marginTop: 2 }}>
+                      {new Date(r.date).toLocaleDateString()} · {meta.label}
+                    </div>
+                  </div>
+                  <span style={{ font: '700 14px var(--font-sans)', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmt(r.total)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Quiet utility actions */}
+      <div className="flex" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
+        {onOpenBudgets && (
+          <button onClick={onOpenBudgets} className="s-button s-pressable flex-1"
+            style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', color: 'var(--ink-secondary)', borderRadius: 'var(--radius-lg)', padding: '11px 0', boxShadow: 'var(--shadow-card)' }}>
+            Budgets
+          </button>
+        )}
+        {onOpenWrapped && (
+          <button onClick={onOpenWrapped} className="s-button s-pressable flex-1"
+            style={{ background: 'var(--surface-card)', border: '1px solid var(--color-border)', color: 'var(--ink-secondary)', borderRadius: 'var(--radius-lg)', padding: '11px 0', boxShadow: 'var(--shadow-card)' }}>
+            Recap
+          </button>
+        )}
+      </div>
     </div>
   );
 }
